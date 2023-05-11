@@ -1,10 +1,23 @@
 import os
+import tarfile
+import tempfile
+import urllib.request
 from pathlib import Path
 
 import pandas as pd
 
 
-def reformat_netmhc_data(netmhc_data_folder: Path):
+def download_data(download_url: str) -> Path:
+    """ Downloads data, extracts it, and returns the path to the extracted folder"""
+    tmp_download_fn = tempfile.NamedTemporaryFile(suffix=".tar.gz").name
+    urllib.request.urlretrieve(download_url, tmp_download_fn)
+    with tarfile.open(tmp_download_fn, "r:gz") as tar:
+        tar.extractall()
+        extracted_dir_name = tar.getnames()[0]
+    return Path(extracted_dir_name)
+
+
+def reformat_downloaded_data(netmhc_data_folder: Path, output_path: Path = Path("../data/IEDB_regression_data.csv")):
     """ Reformats BA data from NetMHCpan download into one CSV"""
 
     # Load in MHC to pseudo sequence mapping
@@ -25,10 +38,19 @@ def reformat_netmhc_data(netmhc_data_folder: Path):
 
     # Reorder columns and save
     data = data[["peptide", "mhc_psuedo_seq", "affinity", "mhc_name", "cv_split"]]
-    if not os.path.exists("data"):
-        os.makedirs("data")
-    data.to_csv("data/IEDB_regression_data.csv", index=False)
+    data.to_csv(output_path, index=False)
 
 
 if __name__ == "__main__":
-    reformat_netmhc_data(Path("NetMHCpan_train"))
+    download_url = "https://services.healthtech.dtu.dk/suppl/immunology/NAR_NetMHCpan_NetMHCIIpan/NetMHCpan_train.tar.gz"
+    data_dir = Path("../data")
+    output_path = data_dir / "IEDB_regression_data.csv"
+
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+
+    print("Downloading data...")
+    netmhc_data_folder = download_data(download_url)
+    print("Reformatting data...")
+    reformat_downloaded_data(netmhc_data_folder, output_path=output_path)
+    print("Done!")
