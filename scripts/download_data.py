@@ -7,14 +7,14 @@ from pathlib import Path
 import pandas as pd
 
 
-def download_data(download_url: str) -> Path:
+def download_data(download_url: str, download_dir: Path = Path("../data")) -> Path:
     """ Downloads data, extracts it, and returns the path to the extracted folder"""
     tmp_download_fn = tempfile.NamedTemporaryFile(suffix=".tar.gz").name
     urllib.request.urlretrieve(download_url, tmp_download_fn)
     with tarfile.open(tmp_download_fn, "r:gz") as tar:
-        tar.extractall()
+        tar.extractall(download_dir)
         extracted_dir_name = tar.getnames()[0]
-    return Path(extracted_dir_name)
+    return download_dir / extracted_dir_name
 
 
 def reformat_downloaded_data(netmhc_data_folder: Path, output_path: Path = Path("../data/IEDB_regression_data.csv")):
@@ -46,11 +46,9 @@ if __name__ == "__main__":
     data_dir = Path("../data")
     output_path = data_dir / "IEDB_regression_data.csv"
 
-    if not os.path.exists(data_dir):
-        os.makedirs(data_dir)
-
     print("Downloading data...")
-    netmhc_data_folder = download_data(download_url)
+    netmhc_data_folder = download_data(download_url, download_dir=data_dir)
+    print("netmhc_data_folder:", netmhc_data_folder)
     print("Reformatting data...")
     reformat_downloaded_data(netmhc_data_folder, output_path=output_path)
     print("Done!")
