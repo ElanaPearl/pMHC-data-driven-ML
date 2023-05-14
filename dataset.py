@@ -5,6 +5,18 @@ from torch.utils.data import Dataset, DataLoader
 from typing import Any 
 from sklearn.preprocessing import OneHotEncoder
 import numpy as np 
+import blosum 
+
+AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'])
+
+def load_blosum_as_dict(bl_type=62):
+    bl = blosum.BLOSUM(bl_type)
+    dict_aa_repr = {}
+    for i, aai in enumerate(AA_LIST):
+        dict_aa_repr[aai] = []
+        for j, aaj in enumerate(AA_LIST):
+            dict_aa_repr[aai].append(bl[aai][aaj])
+    return dict_aa_repr
 
 
 class pMHCDataset(Dataset):
@@ -36,10 +48,24 @@ class pMHCDataset(Dataset):
         # Set up for preprocessing / representing peptide and MHC data 
         self.peptide_repr = peptide_repr
         self.mhc_repr = mhc_repr
-        assert self.peptide_repr in ['1hot'], f"peptide_repr must be in options ['1hot'], found {peptide_repr}"
+        assert self.peptide_repr in ['1hot', 'blosum62'], \
+                    f"peptide_repr must be in options ['1hot', 'blosum62'], found {peptide_repr}"
         if self.peptide_repr == '1hot' or self.mhc_repr == '1hot':
-            AAs = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'])
-            self.aa_encoder = OneHotEncoder(sparse_output=False).fit(AAs.reshape(-1,1))
+            self.aa_encoder = OneHotEncoder(sparse_output=False).fit(AA_LIST.reshape(-1,1))
+        if self.peptide_repr == 'blosum62' or self.mhc_repr == 'blosum62':
+            self.bl_dict = load_blosum_as_dict(bl_type=62)
+
+
+    def _get_aa_1hot_repr(self, aa_sequence: str): 
+        aa_list = np.array(list(aa_sequence)).reshape(-1,1)
+        return self.aa_encoder.transform(aa_list)
+
+    def _get_blosum_repr(self, aa_sequence: str):
+        ipdb.set_trace()
+        bl_repr = np.zeros((len(aa_sequence), 20)) 
+        for i, aa in enumerate(aa_sequence): 
+            bl_repr[i] = self.bl_dict[aa]
+        return bl_repr 
 
     def __len__(self):
         return len(self.data)
@@ -50,12 +76,17 @@ class pMHCDataset(Dataset):
         peptide = series.peptide
         mhc = series.mhc_psuedo_seq
         if self.peptide_repr == '1hot':
-            pep_list = np.array(list(peptide)).reshape(-1,1)
-            peptide = self.aa_encoder.transform(pep_list)
-
+            peptide = self._get_aa_1hot_repr(peptide) 
         if self.mhc_repr == '1hot':
-            mhc_list = np.array(list(mhc)).reshape(-1,1)
-            mhc = self.aa_encoder.transform(mhc_list)
+            mhc = self._get_aa_1hot_repr(mhc) 
+        
+        if self.peptide_repr == 'blosum62':
+            peptide = self._get_blosum_repr(peptide)
+        
+        if self.mhc_repr == 'blosum62':
+            mhc = self._get_blosum_repr(mhc)
+
+
 
         return {'mhc_name': series.mhc_name,
                 'BA': series.affinity,
@@ -80,5 +111,7 @@ def get_dataloaders(df_path: str, cv_splits_tr: Any = None,
 
 
 if __name__ == '__main__': 
-    ds = pMHCDataset(df_path='./data/IEDB_regression_data.csv', cv_splits=None)
-    ds[0]
+    ds = pMHCDataset(df_path='./data/IEDB_regression_data.csv', cv_splits=None,
+        peptide_repr='blosum62', mhc_repr='1hot')
+    data = ds[0]
+    ipdb.set_trace()
