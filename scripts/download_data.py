@@ -34,10 +34,10 @@ def reformat_downloaded_ba_data(
     ba_data = pd.concat(all_ba_splits, axis=0)
 
     # Add in pseudo sequence to data
-    ba_data["mhc_psuedo_seq"] = ba_data["mhc_name"].map(mhc_to_pseudo_seq)
+    ba_data["mhc_pseudo_seq"] = ba_data["mhc_name"].map(mhc_to_pseudo_seq)
 
     # Reorder columns and save
-    ba_data = ba_data[["peptide", "mhc_psuedo_seq", "affinity", "mhc_name", "cv_split"]]
+    ba_data = ba_data[["peptide", "mhc_pseudo_seq", "affinity", "mhc_name", "cv_split"]]
     ba_data.to_csv(output_path, index=False)
 
 
@@ -92,6 +92,15 @@ def reformat_downloaded_el_data(
     ]
     el_data.to_csv(output_path, index=False)
 
+def pp_classifciation_data(load_path: str, save_path: str):
+        """Filters classification dataset of 13 million points to only include peptide-allele sequences 
+            with single allele data (excludes multi-allele data)""" 
+        df = pd.read_csv(load_path)
+        df = df[df.n_possible_alleles == 1][['peptide','presented','mhc_pseudo_seq', 'cell_line', 'cv_split']]
+        
+        # Rename columns to be standardized to those in the regression data
+        df.rename(columns={'presented': 'affinity', 'cell_line': 'mhc_name'}, inplace=True)
+        df.to_csv(save_path, index=False) 
 
 def map_mhc_to_pseudo_seq(MHC_pseudo_file: Path):
     """Create a dictionary mapping MHC name to pseudo sequence"""
@@ -123,5 +132,9 @@ if __name__ == "__main__":
         output_path=data_dir / "IEDB_regression_data.csv",
         mhc_to_pseudo_seq=mhc_to_pseudo_seq,
     )
+
+    print("Filtering and saving SA classification dataset...")
+    pp_classifciation_data(load_path=data_dir / "IEDB_classification_data.csv",
+                            save_path=data_dir / "IEDB_classification_data_SA.csv")
 
     print("Done!")

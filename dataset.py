@@ -61,7 +61,6 @@ class pMHCDataset(Dataset):
         return self.aa_encoder.transform(aa_list)
 
     def _get_blosum_repr(self, aa_sequence: str):
-        ipdb.set_trace()
         bl_repr = np.zeros((len(aa_sequence), 20)) 
         for i, aa in enumerate(aa_sequence): 
             bl_repr[i] = self.bl_dict[aa]
@@ -74,7 +73,7 @@ class pMHCDataset(Dataset):
         series = self.data.iloc[index]
         
         peptide = series.peptide
-        mhc = series.mhc_psuedo_seq
+        mhc = series.mhc_pseudo_seq
         if self.peptide_repr == '1hot':
             peptide = self._get_aa_1hot_repr(peptide) 
         if self.mhc_repr == '1hot':
@@ -95,23 +94,21 @@ class pMHCDataset(Dataset):
 
 
 
-def get_dataloaders(df_path: str, cv_splits_tr: Any = None,
-                    cv_splits_val: Any = None,
+def get_dataloader(df_path: str, 
+                    cv_splits: Any = None,
                     peptide_repr: str = '1hot',
+                    mhc_repr: str= '1hot',
                     batch_size: int = 32):
     """
     Get training / validation dataloaders using pMHCDataset class 
     """
-    tr_ds = pMHCDataset(df_path, cv_splits_tr, peptide_repr)
-    val_ds = pMHCDataset(df_path, cv_splits_val, peptide_repr)
-    tr_loader = DataLoader(tr_ds, batch_size=batch_size, shuffle=True)
-    val_loader = DataLoader(val_ds, batch_size=batch_size, shuffle=False)
-    return tr_loader, val_loader
+    ds = pMHCDataset(df_path, cv_splits, peptide_repr, mhc_repr=mhc_repr)
+    ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=True)
+    return ds_loader
 
 
 
 if __name__ == '__main__': 
-    ds = pMHCDataset(df_path='./data/IEDB_regression_data.csv', cv_splits=None,
+
+    ds_loader = get_dataloader(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None,
         peptide_repr='blosum62', mhc_repr='1hot')
-    data = ds[0]
-    ipdb.set_trace()
