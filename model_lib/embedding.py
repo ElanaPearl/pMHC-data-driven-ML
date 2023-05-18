@@ -95,6 +95,7 @@ class BERTEmbeddingConv(nn.Module):
         
 
     def forward(self, sequence,psi=None):
+
         if self.pos == 'sin':
             
             char_embs = self.onehot(sequence)

@@ -20,6 +20,7 @@ class BERT(nn.Module):
         self.transformer_blocks = nn.ModuleList([TransformerEncoderLayer(hidden, attn_heads, dim_feedforward=hidden*4, dropout=dropout, activation=activation,eps=1e-12) for _ in range(n_layers)])
 
     def forward(self, x_in, mask_in=None):
+
         x,conv_result = self.embedding(x_in,mask_in)
 
         if type(x_in) is tuple:

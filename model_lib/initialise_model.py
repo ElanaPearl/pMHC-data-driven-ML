@@ -35,14 +35,11 @@ def get_classifier(bert, args, vocab_size, num_classes, device):
             args.dropout,
             seq_len=args.seq_len,
             esm=False)
-    criterion = nn.BCEWithLogitsLoss()
-
-    print(model)
     model.apply(weights_init)
 
     model = model.to(device)
 
-    return model, criterion
+    return model
 
 
 def initialise_model(args, vocab_size, num_classes, device):

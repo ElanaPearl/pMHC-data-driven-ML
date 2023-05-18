@@ -1,25 +1,33 @@
-# import wandb
+import wandb
 import argparse
 from model_lib.initialise_model import initialise_model
 from dataset import get_dataloader
 import torch.optim as optim 
 import ipdb 
 from sklearn.metrics import roc_auc_score, average_precision_score
+import numpy as np 
+import torch.nn as nn
+import torch
 
-def log_wandb(model_output, true_labels, loss, tr_val_test='train'):
+def log_wandb(model_output, true_labels, loss, folder='train'):
     model_output = model_output.detach().cpu().numpy()
     true_labels = true_labels.detach().cpu().numpy()
-    auroc = roc_auc_score(true_labels, model_output)
-    auprc = average_precision_score(true_labels, model_output)
-    metrics = {f"{tr_val_test}/loss": loss.item(), 
-                f'{tr_val_test}/aucroc': auroc, f'{tr_val_test}/aucprc': auprc}
+    if len(np.unique(true_labels)) == 1:
+            metrics = {f"{folder}/loss": loss.item()}
+    else:
+        auroc = roc_auc_score(true_labels, model_output)
+        auprc = average_precision_score(true_labels, model_output)
+        metrics = {f"{folder}/loss": loss.item(), 
+                    f'{folder}/aucroc': auroc, f'{folder}/aucprc': auprc}
     
     wandb.log(metrics)
 
 def train_pMHC(args):
     device =  "cuda:0" if args.use_cuda else 'cpu'
-    model, loss_fn = initialise_model(args, vocab_size=20, num_classes=1, device=device)
-    
+    model = initialise_model(args, vocab_size=20, num_classes=1, device=device)
+    weight = torch.tensor([1.0, 20.0])  # Higher weight for positive (minority) class
+    loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
+
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
@@ -30,15 +38,23 @@ def train_pMHC(args):
                         peptide_repr = args.peptide_repr, mhc_repr = args.mhc_repr,
                         batch_size = args.batch_size)
 
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="pMHC",
+        
+        # track hyperparameters and run metadata
+        config=args
+    )
     for epoch in range(args.n_epochs):
         for i, data in enumerate(train_loader):
-            peptide = data['peptide'].to(device)
-            mhc = data['mhc'].to(device)
+            peptide = data['peptide'].to(device).long()
+            mhc = data['mhc'].to(device).long()
             affinity = data['BA']
-
             pred_affinity = model(peptide, mhc)
-            loss = loss_fn(pred_affinity, affinity)
-            
+            ipdb.set_trace()
+            loss = loss_fn(pred_affinity, affinity.float())
+            print(pred_affinity)
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -51,19 +67,20 @@ def train_pMHC(args):
     # Test the model
     model.eval()
     with torch.no_grad():
-        correct = 0
-        total = 0
+        labels = []
+        pred_affinity = []
+        loss = 0
         for data in val_loader:
             peptide = data['peptide'].to(device)
             mhc = data['mhc'].to(device)
-            affinity = data['BA']
+            labels.append(data['BA'].cpu().numpy())
+            pred_affinity.append(model(peptide, mhc).detach().cpu().numpy())
 
-            pred_affinity = model(peptide, mhc)
-            loss = loss_fn(pred_affinity, affinity)
-            
-            
-        accuracy = 100 * correct / total
-        print(f"Test Accuracy: {accuracy:.2f}%")
+            loss += loss_fn(pred_affinity, affinity).item()
+    average_loss = loss/len(val_loader)
+    labels = np.concatenate(labels)
+    pred_affinity = np.concatenate(pred_affinity)
+    log_wandb(pred_affinity, labels, average_loss)    
     model.train()
 
 if __name__ == '__main__':
@@ -74,7 +91,7 @@ if __name__ == '__main__':
     # Misc arguments
     parser.add_argument('-learning_rate', type=float, default=0.001, help='learning rate for training')
     parser.add_argument('-n_epochs', type=int, default=100, help='number of epochs to train')
-    parser.add_argument('-batch_size', type=int, default=100, help='batch size')
+    parser.add_argument('-batch_size', type=int, default=50, help='batch size')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
 
     # Data arguments
@@ -87,7 +104,7 @@ if __name__ == '__main__':
     parser.add_argument('-hidden', type=int, default=256, help='hidden size of transformer model')
     parser.add_argument('-layers', type=int, default=6, help='number of layers of bert')
     parser.add_argument('-attn_heads', type=int, default=4, help='number of attention heads in transformer')
-    parser.add_argument('-seq_len', type=int, default=20, help='maximum sequence length') # TODO 
+    parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') # TODO 
     parser.add_argument('-dropout', type=float, default=.1, help='dropout rate') 
     parser.add_argument('-emb_type', type=str, default='conv', 
                 help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair']) # TODO 

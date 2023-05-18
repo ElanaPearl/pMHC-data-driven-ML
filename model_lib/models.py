@@ -126,29 +126,16 @@ class PairwiseClassifierModel(nn.Module):
         self.bert = bert
         self.esm =  esm
         
+        hidden_size = self.bert.hidden
 
-        if self.esm:
-            self.num_esm_layers = len(bert.layers)
-            hidden_size = bert.layers[-1].self_attn.out_proj.in_features
-        else:
-            hidden_size = self.bert.hidden
-
-        # self.classifier = OrderAgnosticClassifier(hidden_size,tasks)
         self.classifier = OrderedClassifier(hidden_size,tasks,dropout)
-        # self.classifier = TransformerClassifier(hidden_size,tasks,seq_len=seq_len)
 
-    def forward(self, x_in, target):
+    def forward(self, x1_in, x2_in):
 
-        if self.esm:
-            x1out = self.bert(x_in[0], repr_layers=[self.num_esm_layers])
-            x2out= self.bert(x_in[1], repr_layers=[self.num_esm_layers])
-            x1  = x1out["representations"][self.num_esm_layers]
-            x2  = x2out["representations"][self.num_esm_layers]
-        else:
-            x1,conv_out1 = self.bert(x_in[0])
-            x2,conv_out2= self.bert(x_in[1])
+        x1,conv_out1 = self.bert(x1_in)
+        x2,conv_out2= self.bert(x2_in)
 
-        task_outputs = self.classifier.forward(x1,x2,x_in[0],x_in[1])
+        task_outputs = self.classifier.forward(x1,x2,x1_in, x2_in)
 
         return task_outputs
 
