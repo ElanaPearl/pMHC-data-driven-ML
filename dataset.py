@@ -22,7 +22,8 @@ def load_blosum_as_dict(bl_type=62):
 class pMHCDataset(Dataset):
     def __init__(self, df_path: str, cv_splits: Any = None,
                     peptide_repr: str = '1hot',
-                    mhc_repr: str = '1hot'):
+                    mhc_repr: str = '1hot',
+                    max_peptide_len: int = 15):
         """
         Custom Dataset class for loading pMHC dataset.
 
@@ -47,18 +48,23 @@ class pMHCDataset(Dataset):
 
         # Set up for preprocessing / representing peptide and MHC data 
         self.peptide_repr = peptide_repr
+        self.max_peptide_len = max_peptide_len
         self.mhc_repr = mhc_repr
-        assert self.peptide_repr in ['1hot', 'blosum62'], \
-                    f"peptide_repr must be in options ['1hot', 'blosum62'], found {peptide_repr}"
+        assert self.peptide_repr in ['1hot', 'blosum62', 'string'], \
+                    f"peptide_repr must be in options ['1hot', 'blosum62', 'string'], found {peptide_repr}"
         if self.peptide_repr == '1hot' or self.mhc_repr == '1hot':
             self.aa_encoder = OneHotEncoder(sparse_output=False).fit(AA_LIST.reshape(-1,1))
         if self.peptide_repr == 'blosum62' or self.mhc_repr == 'blosum62':
             self.bl_dict = load_blosum_as_dict(bl_type=62)
 
 
-    def _get_aa_1hot_repr(self, aa_sequence: str): 
+    def _get_aa_1hot_repr(self, aa_sequence: str, pad_to = None): 
         aa_list = np.array(list(aa_sequence)).reshape(-1,1)
-        return self.aa_encoder.transform(aa_list)
+        output = self.aa_encoder.transform(aa_list)
+        if pad_to is not None and pad_to - output.shape[0]  > 0:
+            n = pad_to - output.shape[0] 
+            output = np.concatenate([output, np.zeros((n, output.shape[1]))])
+        return output 
 
     def _get_blosum_repr(self, aa_sequence: str):
         bl_repr = np.zeros((len(aa_sequence), 20)) 
@@ -75,7 +81,7 @@ class pMHCDataset(Dataset):
         peptide = series.peptide
         mhc = series.mhc_pseudo_seq
         if self.peptide_repr == '1hot':
-            peptide = self._get_aa_1hot_repr(peptide) 
+            peptide = self._get_aa_1hot_repr(peptide, pad_to=self.max_peptide_len) 
         if self.mhc_repr == '1hot':
             mhc = self._get_aa_1hot_repr(mhc) 
         
@@ -84,8 +90,6 @@ class pMHCDataset(Dataset):
         
         if self.mhc_repr == 'blosum62':
             mhc = self._get_blosum_repr(mhc)
-
-
 
         return {'mhc_name': series.mhc_name,
                 'BA': series.affinity,
@@ -103,6 +107,7 @@ def get_dataloader(df_path: str,
     Get training / validation dataloaders using pMHCDataset class 
     """
     ds = pMHCDataset(df_path, cv_splits, peptide_repr, mhc_repr=mhc_repr)
+    ds[0]
     ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=True)
     return ds_loader
 

@@ -113,7 +113,7 @@ def map_mhc_to_pseudo_seq(MHC_pseudo_file: Path):
 
 if __name__ == "__main__":
     download_url = "https://services.healthtech.dtu.dk/suppl/immunology/NAR_NetMHCpan_NetMHCIIpan/NetMHCpan_train.tar.gz"
-    data_dir = Path("../data")
+    data_dir = Path("./data")
 
     print("Downloading data...")
     netmhc_data_folder = download_data(download_url=download_url, download_dir=data_dir)

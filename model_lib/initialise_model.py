@@ -28,7 +28,7 @@ def get_bert(args, vocab_size):
     return bert
 
 
-def get_classifier(bert, task, args, vocab_size, num_classes, device):
+def get_classifier(bert, args, vocab_size, num_classes, device):
     model = PairwiseClassifierModel(
             bert,
             num_classes,
@@ -45,23 +45,16 @@ def get_classifier(bert, task, args, vocab_size, num_classes, device):
     return model, criterion
 
 
-def initialise_model(args, task, vocab_size, num_classes, device):
+def initialise_model(args, vocab_size, num_classes, device):
     print("Building BERT model")
     bert = get_bert(args, vocab_size)
 
-    model,criterion = get_classifier(
+    return get_classifier(
             bert,
-            task,
             args,
             vocab_size,
             num_classes,
             device)
-
-    model_and_criterion = {}
-    model_and_criterion['model'] = model
-    model_and_criterion['criterion'] = criterion
-
-    return model_and_criterion
 
 
 ######## Unit Test ########
@@ -82,14 +75,12 @@ if __name__ == "__main__":
         activation='gelu'  # activation function
     sample_args = FakeArgs()
 
-    sample_task = "ppi"
     sample_vocab_size = 29
     sample_num_classes = 1
     sample_device = "cuda:0"
 
     model, criterion = initialise_model(
         sample_args,
-        sample_task,
         sample_vocab_size,
         sample_num_classes,
         sample_device,
