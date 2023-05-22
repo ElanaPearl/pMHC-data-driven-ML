@@ -12,7 +12,7 @@ AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 
 def load_blosum_as_dict(bl_type=62):
     """ 
     Load blosum matrix as dictionary.
-    """"
+    """
     bl = blosum.BLOSUM(bl_type)
     dict_aa_repr = {}
     for i, aai in enumerate(AA_LIST):

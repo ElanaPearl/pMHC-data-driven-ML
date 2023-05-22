@@ -16,11 +16,22 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
     Log metrics to wandb. 
     Will always log loss, but only logs AUC / PRC if 
     postive class is present.
+    
+    Args:
+        model_output (torch.Tensor): The output tensor from the model predicting binding affinity.
+        true_labels (torch.Tensor): The true labels (binding affinities).
+        loss (torch.Tensor): The BCE loss value to log.
+        folder (str, optional): The folder name to log the data in wadnb. Defaults to 'train'.
+
+    Returns:
+        None
     """
+
     model_output = model_output.detach().cpu().numpy()
     true_labels = true_labels.detach().cpu().numpy()
-    if len(np.unique(true_labels)) == 1:
-            metrics = {f"{folder}/loss": loss.item()}
+    if len(np.unique(true_labels)) == 1: 
+        # only compute AUROC / AUPRC if postive class is present
+        metrics = {f"{folder}/loss": loss.item()}
     else:
         auroc = roc_auc_score(true_labels, model_output)
         auprc = average_precision_score(true_labels, model_output)
@@ -30,17 +41,28 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
     wandb.log(metrics)
 
 def train_pMHC(args):
+    """
+    Trains pMHC model.
+    """
+
+    # Create model, based on DeepVHPPI (bert)
     device =  "cuda:0" if args.use_cuda else 'cpu'
     model = initialise_model(args, vocab_size=20, num_classes=1, device=device)
+    
+    # Loss fn = weighted BCE 
     weight = torch.tensor([20.0])  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
+    # Load data - training data is the MA classifcation data. We ignore the 8ish million
+    # multiple allele data and keep the 4ish million single allele data
+
     train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
                         peptide_repr = args.peptide_repr, mhc_repr = args.mhc_repr,
                         batch_size = args.batch_size)
     
+    # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
     val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
                         peptide_repr = args.peptide_repr, mhc_repr = args.mhc_repr,
                         batch_size = args.batch_size)
@@ -62,22 +84,22 @@ def train_pMHC(args):
             affinity = data['BA']
             pred_affinity = model(peptide, mhc)
             loss = loss_fn(pred_affinity, affinity.float())
-            # pred_prob = sig(pred_affinity)
-
-            is_nan = torch.stack([torch.isnan(p).any() for p in model.parameters()]).any()
-            if is_nan or torch.isnan(pred_affinity).any():
-                import ipdb; ipdb.set_trace()
+            pred_prob = sig(pred_affinity)
+            print(pred_prob)
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
             
+            is_nan = torch.stack([torch.isnan(p).any() for p in model.parameters()]).any()
+            if is_nan or torch.isnan(pred_affinity).any():
+                import ipdb; ipdb.set_trace()
             log_wandb(pred_affinity, affinity, loss)
             
             if (i + 1) % 100 == 0:
                 print(f"Epoch [{epoch + 1}/{args.n_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}")
     
-    # Test the model
+    # Test the model on regression data 
     model.eval()
     with torch.no_grad():
         labels = []
