@@ -71,7 +71,9 @@ class BERTEmbeddingConv(nn.Module):
         self.onehot.weight.requires_grad = False
         self.onehot.weight[1:] = torch.eye(onehot_dim)
 
-        filters = [(1,128),(3,256),(5,384),(7,512),(9,512),(11,512)]
+        filters = [(1,32),(2,64),(3,128),(4,256),(5,256)] #KARA's CHANGE
+        # filters = [(1,128),(3,256),(5,384),(7,512),(9,512)] #KARA's CHANGE
+        # filters = [(1,128),(3,256),(5,384),(7,512),(9,512),(11,512)]
         # filters = [(1,128),(3,256),(5,256),(7,256),(9,256),(11,256),(13,256)]
         # filters = [(1,64),(3,128),(5,128),(7,128),(9,128),(11,128),(13,128)]
         # filters = [(1,128),(2,256),(3,384),(4,512),(5,512),(6,512)]
@@ -95,7 +97,7 @@ class BERTEmbeddingConv(nn.Module):
         
 
     def forward(self, sequence,psi=None):
-
+        # import ipdb; ipdb.set_trace()
         if self.pos == 'sin':
             
             char_embs = self.onehot(sequence)

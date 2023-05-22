@@ -128,14 +128,16 @@ class PairwiseClassifierModel(nn.Module):
         
         hidden_size = self.bert.hidden
 
-        self.classifier = OrderedClassifier(hidden_size,tasks,dropout)
+        self.classifier = OrderedClassifier(hidden_size,dropout=dropout)
 
     def forward(self, x1_in, x2_in):
 
         x1,conv_out1 = self.bert(x1_in)
         x2,conv_out2= self.bert(x2_in)
-
-        task_outputs = self.classifier.forward(x1,x2,x1_in, x2_in)
+        task_outputs = self.classifier.forward(x1,x2)
+        a, b, c = torch.isnan(x1).any(), torch.isnan(x2).any(), torch.isnan(task_outputs).any()
+        if a or b or c: 
+            import ipdb; ipdb.set_trace()
 
         return task_outputs
 
@@ -236,7 +238,7 @@ class OrderAgnosticClassifier(nn.Module):
         return out.view(-1)
 
 class OrderedClassifier(nn.Module):
-    def __init__(self, hidden, n_classes,dropout=0.1):
+    def __init__(self, hidden, dropout=0.1):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
         self.linear1 = nn.Linear(hidden*2, int(hidden)*2)

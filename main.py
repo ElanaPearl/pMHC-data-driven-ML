@@ -8,8 +8,15 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import numpy as np 
 import torch.nn as nn
 import torch
+from tqdm import tqdm 
 
 def log_wandb(model_output, true_labels, loss, folder='train'):
+
+    """ 
+    Log metrics to wandb. 
+    Will always log loss, but only logs AUC / PRC if 
+    postive class is present.
+    """
     model_output = model_output.detach().cpu().numpy()
     true_labels = true_labels.detach().cpu().numpy()
     if len(np.unique(true_labels)) == 1:
@@ -25,7 +32,7 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
 def train_pMHC(args):
     device =  "cuda:0" if args.use_cuda else 'cpu'
     model = initialise_model(args, vocab_size=20, num_classes=1, device=device)
-    weight = torch.tensor([1.0, 20.0])  # Higher weight for positive (minority) class
+    weight = torch.tensor([20.0])  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -45,15 +52,21 @@ def train_pMHC(args):
         # track hyperparameters and run metadata
         config=args
     )
+
+    sig = nn.Sigmoid()
+    print(len(train_loader))
     for epoch in range(args.n_epochs):
-        for i, data in enumerate(train_loader):
+        for i, data in enumerate(tqdm(train_loader)):
             peptide = data['peptide'].to(device).long()
             mhc = data['mhc'].to(device).long()
             affinity = data['BA']
             pred_affinity = model(peptide, mhc)
-            ipdb.set_trace()
             loss = loss_fn(pred_affinity, affinity.float())
-            print(pred_affinity)
+            # pred_prob = sig(pred_affinity)
+
+            is_nan = torch.stack([torch.isnan(p).any() for p in model.parameters()]).any()
+            if is_nan or torch.isnan(pred_affinity).any():
+                import ipdb; ipdb.set_trace()
 
             optimizer.zero_grad()
             loss.backward()
@@ -62,7 +75,7 @@ def train_pMHC(args):
             log_wandb(pred_affinity, affinity, loss)
             
             if (i + 1) % 100 == 0:
-                print(f"Epoch [{epoch + 1}/{num_epochs}], Step [{i + 1}/{total_step}], Loss: {loss.item():.4f}")
+                print(f"Epoch [{epoch + 1}/{args.n_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}")
     
     # Test the model
     model.eval()
@@ -97,8 +110,8 @@ if __name__ == '__main__':
     # Data arguments
     parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe')
     parser.add_argument('-val_df_path', type=str, default='./data/IEDB_regression_data.csv', help='Path to load val / test dataframe')
-    parser.add_argument('-peptide_repr', type=str, default='string', help='how to represent peptide, if at all') 
-    parser.add_argument('-mhc_repr', type=str, default='string', help='how to represent mhc allele, if at all') 
+    parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
+    parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
 
     # Model arguments
     parser.add_argument('-hidden', type=int, default=256, help='hidden size of transformer model')
