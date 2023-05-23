@@ -10,6 +10,8 @@ import torch.nn as nn
 import torch
 from tqdm import tqdm 
 
+vocab_size = 20
+
 def log_wandb(model_output, true_labels, loss, folder='train'):
 
     """ 
@@ -46,8 +48,8 @@ def train_pMHC(args):
     """
 
     # Create model, based on DeepVHPPI (bert)
-    device =  "cuda:0" # if args.use_cuda else 'cpu'
-    model = initialise_model(args, vocab_size=20, num_classes=1, device=device)
+    device =  "cpu" # "cuda:0" # if args.use_cuda else 'cpu'
+    model = initialise_model(args, vocab_size=vocab_size+1, num_classes=1, device=device)
     model = model.to(device)
     # Loss fn = weighted BCE 
     weight = torch.tensor([20.0]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
