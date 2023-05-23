@@ -5,7 +5,7 @@ from torch.utils.data import Dataset, DataLoader
 from typing import Any 
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import numpy as np 
-import blosum 
+# import blosum 
 
 AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'])
 
@@ -71,16 +71,15 @@ class pMHCDataset(Dataset):
 
     def _get_aa_1hot_repr(self, aa_sequence: str, repr: str, pad_to = None): 
         aa_list = np.array(list(aa_sequence)).reshape(-1,1)
-        return np.random.choice(20, size=20), 0
-        # if repr == 'indices':
-        #     aa_list = aa_list.squeeze().ravel()
-        # output = self.aa_encoder.transform(aa_list) 
-        # seq_len_b4_pad = output.shape[0]
-        # if pad_to is not None and pad_to - output.shape[0]  > 0:
-        #     n = pad_to - output.shape[0] 
-        #     shape = (n, ) if repr == 'indices' else (n, output.shape[1])
-        #     output = np.concatenate([output, np.zeros(shape)])
-        # return output, seq_len_b4_pad
+        if repr == 'indices':
+            aa_list = aa_list.squeeze().ravel()
+        output = self.aa_encoder.transform(aa_list) 
+        seq_len_b4_pad = output.shape[0]
+        if pad_to is not None and pad_to - output.shape[0]  > 0:
+            n = pad_to - output.shape[0] 
+            shape = (n, ) if repr == 'indices' else (n, output.shape[1])
+            output = np.concatenate([output, np.zeros(shape)])
+        return output, seq_len_b4_pad
 
     def _get_blosum_repr(self, aa_sequence: str):
         bl_repr = np.zeros((len(aa_sequence), 20)) 
@@ -110,7 +109,7 @@ class pMHCDataset(Dataset):
             mhc = self._get_blosum_repr(mhc)
 
         return {'mhc_name': series.mhc_name, # MHC allele name
-                'BA': np.random.choice(2),#series.affinity, #binding affinity 
+                'BA': series.affinity, #binding affinity 
                 'peptide': peptide, #peptide representation 
                 'mhc': mhc, #MHC representation
                 'peptide_len': pep_len} # Length of original peptide (8-15) before 0-padding
