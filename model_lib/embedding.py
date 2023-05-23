@@ -12,7 +12,6 @@ import torch.nn.functional as F
 from model_lib.layers import Highway
 
 
-
 class PositionalEmbedding(nn.Module):
 
     def __init__(self, d_model, max_len=512):

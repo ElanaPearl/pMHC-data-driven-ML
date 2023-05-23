@@ -10,6 +10,8 @@ import torch.nn as nn
 import torch
 from tqdm import tqdm 
 
+vocab_size = 20
+
 def log_wandb(model_output, true_labels, loss, folder='train'):
 
     """ 
@@ -46,11 +48,11 @@ def train_pMHC(args):
     """
 
     # Create model, based on DeepVHPPI (bert)
-    device =  "cuda:0" if args.use_cuda else 'cpu'
-    model = initialise_model(args, vocab_size=20, num_classes=1, device=device)
-    
+    device =  "cpu" # "cuda:0" # if args.use_cuda else 'cpu'
+    model = initialise_model(args, vocab_size=vocab_size+1, num_classes=1, device=device)
+    model = model.to(device)
     # Loss fn = weighted BCE 
-    weight = torch.tensor([20.0])  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
+    weight = torch.tensor([20.0]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -59,18 +61,21 @@ def train_pMHC(args):
     # multiple allele data and keep the 4ish million single allele data
 
     train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
-                        peptide_repr = args.peptide_repr, mhc_repr = args.mhc_repr,
-                        batch_size = args.batch_size)
+                                  peptide_repr = args.peptide_repr, 
+                                  mhc_repr = args.mhc_repr,
+                                  batch_size = args.batch_size,
+                                  shuffle = True)
     
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
     val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
-                        peptide_repr = args.peptide_repr, mhc_repr = args.mhc_repr,
-                        batch_size = args.batch_size)
+                                peptide_repr = args.peptide_repr, 
+                                mhc_repr = args.mhc_repr,
+                                batch_size = args.batch_size,
+                                shuffle = False)
 
     wandb.init(
         # set the wandb project where this run will be logged
         project="pMHC",
-        
         # track hyperparameters and run metadata
         config=args
     )
@@ -79,44 +84,50 @@ def train_pMHC(args):
     print(len(train_loader))
     for epoch in range(args.n_epochs):
         for i, data in enumerate(tqdm(train_loader)):
-            peptide = data['peptide'].to(device).long()
-            mhc = data['mhc'].to(device).long()
-            affinity = data['BA']
+            model.train()
+            peptide = data['peptide'].long().to(device)
+            mhc = data['mhc'].long().to(device)
+            affinity = data['BA'].float().to(device)
             pred_affinity = model(peptide, mhc)
-            loss = loss_fn(pred_affinity, affinity.float())
-            pred_prob = sig(pred_affinity)
-            print(pred_prob)
+            loss = loss_fn(pred_affinity, affinity)
+            # pred_prob = sig(pred_affinity)
+            # print(pred_prob)
 
+            if torch.isnan(loss).any():
+                continue            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            
             is_nan = torch.stack([torch.isnan(p).any() for p in model.parameters()]).any()
             if is_nan or torch.isnan(pred_affinity).any():
+                continue
                 import ipdb; ipdb.set_trace()
             log_wandb(pred_affinity, affinity, loss)
             
             if (i + 1) % 100 == 0:
                 print(f"Epoch [{epoch + 1}/{args.n_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}")
-    
-    # Test the model on regression data 
-    model.eval()
-    with torch.no_grad():
-        labels = []
-        pred_affinity = []
-        loss = 0
-        for data in val_loader:
-            peptide = data['peptide'].to(device)
-            mhc = data['mhc'].to(device)
-            labels.append(data['BA'].cpu().numpy())
-            pred_affinity.append(model(peptide, mhc).detach().cpu().numpy())
 
-            loss += loss_fn(pred_affinity, affinity).item()
-    average_loss = loss/len(val_loader)
-    labels = np.concatenate(labels)
-    pred_affinity = np.concatenate(pred_affinity)
-    log_wandb(pred_affinity, labels, average_loss)    
-    model.train()
+            if i % 50 == 0:
+                # Test the model on regression data 
+                model.eval()
+                with torch.no_grad():
+                    affinity_lst = []
+                    pred_affinity_lst = []
+                    loss = 0
+                    for data in val_loader:
+                        peptide = data['peptide'].long().to(device)
+                        mhc = data['mhc'].long().to(device)
+                        affinity = data['BA'].float().to(device)
+                        pred_affinity = model(peptide, mhc)
+                        loss += loss_fn(pred_affinity, affinity)
+                        affinity_lst.append(affinity.detach().cpu().view(-1))
+                        pred_affinity_lst.append(pred_affinity.detach().cpu().view(-1))
+                        
+                average_loss = loss/len(val_loader)
+                affinity_lst = torch.concat(affinity_lst)
+                pred_affinity_lst = torch.concat(pred_affinity_lst)
+                log_wandb(pred_affinity_lst, affinity_lst.long(), average_loss, folder='val')    
+
 
 if __name__ == '__main__':
 
@@ -124,9 +135,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='pMHC Training Script')
 
     # Misc arguments
-    parser.add_argument('-learning_rate', type=float, default=0.001, help='learning rate for training')
+    parser.add_argument('-learning_rate', type=float, default=1e-3, help='learning rate for training')
     parser.add_argument('-n_epochs', type=int, default=100, help='number of epochs to train')
-    parser.add_argument('-batch_size', type=int, default=50, help='batch size')
+    parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
 
     # Data arguments
@@ -137,11 +148,11 @@ if __name__ == '__main__':
 
     # Model arguments
     parser.add_argument('-hidden', type=int, default=256, help='hidden size of transformer model')
-    parser.add_argument('-layers', type=int, default=6, help='number of layers of bert')
+    parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
     parser.add_argument('-attn_heads', type=int, default=4, help='number of attention heads in transformer')
     parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') # TODO 
-    parser.add_argument('-dropout', type=float, default=.1, help='dropout rate') 
-    parser.add_argument('-emb_type', type=str, default='conv', 
+    parser.add_argument('-dropout', type=float, default=0, help='dropout rate') 
+    parser.add_argument('-emb_type', type=str, default='lookup', 
                 help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair']) # TODO 
     parser.add_argument('-activation', type=str, default='gelu', help='activation function') 
 

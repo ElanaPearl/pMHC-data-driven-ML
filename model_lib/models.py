@@ -61,25 +61,6 @@ class TokenClassifier(nn.Module):
         x = self.out_proj(x)
         return x
 
-# class TokenClassifier(nn.Module):
-#     def __init__(self,hidden_size: int,num_labels: int,ignore_index: int = -100):
-#         super().__init__()
-#         self.classify = nn.Sequential(
-#             nn.Dropout(0.1, inplace=True),
-#             # nn.BatchNorm1d(hidden_size),  # Added this
-#             weight_norm(nn.Conv1d(hidden_size, hidden_size, 5, padding=2), dim=None),
-#             nn.GELU(),
-#             nn.Dropout(0.1, inplace=True),
-#             weight_norm(nn.Conv1d(hidden_size, num_labels, 3, padding=1), dim=None))
-#         self.num_labels = num_labels
-#         self._ignore_index = ignore_index
-#     def forward(self, sequence_output):
-#         sequence_output = sequence_output.transpose(1, 2)
-#         sequence_logits = self.classify(sequence_output)
-#         sequence_logits = sequence_logits.transpose(1, 2).contiguous()
-#         outputs = sequence_logits
-#         return outputs 
-
 
 class SequenceClassifierModel(nn.Module):
     def __init__(self, bert: BERT, tasks, dropout,esm=False):
