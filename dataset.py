@@ -7,6 +7,7 @@ from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import numpy as np 
 import blosum 
 
+PAD_ID = 20
 AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'])
 
 def load_blosum_as_dict(bl_type=62):
@@ -77,7 +78,7 @@ class pMHCDataset(Dataset):
         if pad_to is not None and pad_to - output.shape[0] > 0:
             n = pad_to - output.shape[0]
             shape = (n, ) if repr == 'indices' else (n, output.shape[1])
-            output = np.concatenate([output, np.ones(shape) * 20])
+            output = np.concatenate([output, np.ones(shape) * PAD_ID])
         return output, seq_len_b4_pad
 
     def _get_blosum_repr(self, aa_sequence: str):
