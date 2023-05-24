@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.nn.functional as F 
 from torch.autograd import Variable
 from model_lib.embedding import BERTEmbedding
-
+from vocab import *
 
 # Hyperparameters chosen from the MHCAttentionNet paper; except mhc and peptide length which is ours
 EMBED_DIM = 100 # change only after re-training the vectors in the new space
@@ -56,16 +56,16 @@ class Attention(nn.Module):
 
 class MHCAttnNet(nn.Module):
 
-    def __init__(self):
+    def __init__(self, dropout=.5):
         super(MHCAttnNet, self).__init__()
         self.hidden_size = BiLSTM_HIDDEN_SIZE
         self.peptide_num_layers = BiLSTM_PEPTIDE_NUM_LAYERS
         self.mhc_num_layers = BiLSTM_MHC_NUM_LAYERS
 
-        self.peptide_embedding = BERTEmbedding(vocab_size=21+1,embed_size=EMBED_DIM,max_len=PEPTIDE_LENGTH, dropout=0)
-        self.mhc_embedding = BERTEmbedding(vocab_size=21+1,embed_size=EMBED_DIM,max_len=MHC_AMINO_ACID_LENGTH, dropout=0)
+        self.peptide_embedding = BERTEmbedding(vocab_size=VOCAB_SIZE,embed_size=EMBED_DIM,max_len=PEPTIDE_LENGTH, dropout=0)
+        self.mhc_embedding = BERTEmbedding(vocab_size=VOCAB_SIZE,embed_size=EMBED_DIM,max_len=MHC_AMINO_ACID_LENGTH, dropout=0)
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(p=0.5)
+        self.dropout = nn.Dropout(p=dropout)
 
         self.peptide_lstm = nn.LSTM(EMBED_DIM, self.hidden_size, 
                                     num_layers=self.peptide_num_layers, batch_first=True, bidirectional=True)

@@ -1,5 +1,8 @@
 
 import numpy as np 
 
+# '-' denotes padding 
 AA_LIST = np.array(['-', 'A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'X'])
 PAD_ID = 0
+VOCAB_SIZE = len(AA_LIST)
+

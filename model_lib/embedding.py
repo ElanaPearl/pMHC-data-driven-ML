@@ -47,7 +47,9 @@ class BERTEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, sequence,psi=None):
+        # mask = (sequence != PAD_ID)[:,:,None]
         if self.pos == 'sin':
+            # embeddings = (self.token(sequence) + self.position(sequence))*mask
             embeddings = self.token(sequence) + self.position(sequence)
         else:
             position_ids = torch.arange(sequence.size(1), dtype=torch.long).cuda()
