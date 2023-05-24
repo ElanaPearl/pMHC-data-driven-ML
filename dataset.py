@@ -5,10 +5,9 @@ from torch.utils.data import Dataset, DataLoader
 from typing import Any 
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import numpy as np 
+from vocab import *
 # import blosum 
 
-PAD_ID = 21
-AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'X'])
 
 def load_blosum_as_dict(bl_type=62):
     """ 
@@ -94,13 +93,12 @@ class pMHCDataset(Dataset):
     def __getitem__(self, index):
         series = self.data.iloc[index]
         
-        peptide = series.peptide[:8]
+        peptide = series.peptide
         mhc = series.mhc_pseudo_seq
         if self.peptide_repr in ['1hot', 'indices']:
             peptide, pep_len = self._get_aa_1hot_repr(peptide,
                                                       repr=self.peptide_repr, 
                                                       pad_to=self.max_peptide_len)
-
         if self.mhc_repr in ['1hot', 'indices']:
             mhc, _ = self._get_aa_1hot_repr(mhc, repr=self.mhc_repr) 
         
@@ -133,7 +131,9 @@ def get_dataloader(df_path: str,
 
 
 if __name__ == '__main__': 
-
+    ds = pMHCDataset(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None, 
+                peptide_repr='indices', mhc_repr='indices')
+    ds[0]
     ds_loader = get_dataloader(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None,
         peptide_repr='indices', mhc_repr='indices')
         

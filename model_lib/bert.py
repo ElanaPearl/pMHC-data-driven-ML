@@ -7,8 +7,7 @@ import torch
 import torch.nn as nn
 from model_lib.embedding import get_embedding
 from model_lib.layers import TransformerEncoderLayer
-
-PAD_ID = 21
+from vocab import * 
 
 class BERT(nn.Module):
     def __init__(self, vocab_size, hidden=768, n_layers=12, attn_heads=12,dropout=0.1,max_len=512,emb_type='lookup',activation='relu'):

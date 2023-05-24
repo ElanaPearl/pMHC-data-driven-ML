@@ -8,11 +8,11 @@ from sklearn.metrics import roc_auc_score, average_precision_score
 import numpy as np 
 import torch.nn as nn
 import torch
-from tqdm import tqdm 
+from tqdm import tqdm
+from vocab import * 
 import ipdb 
 
 
-vocab_size = 20
 
 def log_wandb(model_output, true_labels, loss, folder='train'):
 
@@ -59,8 +59,9 @@ def train_pMHC(args):
         import os
         os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4"
 
-    model = initialise_model(args, vocab_size=vocab_size+1, num_classes=1, device=device)
+    model = initialise_model(args, vocab_size=VOCAB_SIZE, num_classes=1, device=device)
     model = model.to(device)
+
     # Loss fn = weighted BCE 
     weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
@@ -82,7 +83,7 @@ def train_pMHC(args):
     #                             mhc_repr = args.mhc_repr,
     #                             batch_size = args.batch_size,
     #                             shuffle = False)
-    train_loader = get_dataloader(args.tr_df_path, cv_splits = [0,1,2,3], 
+    train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
                                   peptide_repr = args.peptide_repr, 
                                   mhc_repr = args.mhc_repr,
                                   batch_size = args.batch_size,
@@ -90,7 +91,7 @@ def train_pMHC(args):
     
 
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
-    val_loader = get_dataloader(args.tr_df_path, cv_splits = 4, 
+    val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
                                 peptide_repr = args.peptide_repr, 
                                 mhc_repr = args.mhc_repr,
                                 batch_size = args.batch_size,
@@ -137,7 +138,7 @@ def train_pMHC(args):
                         peptide = data['peptide'].long().to(device)
                         mhc = data['mhc'].long().to(device)
                         affinity = data['BA'].float().to(device)
-                        if args.train_regression_thresh:
+                        if args.train_regression_thresh or 'regression' in args.val_df_path:
                             affinity = (affinity > .426).float()
                         pred_affinity = model(peptide, mhc)
                         loss += loss_fn(pred_affinity, affinity)
@@ -170,12 +171,12 @@ if __name__ == '__main__':
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
 
     # Model arguments
-    parser.add_argument('-model', type=str, default='bert',choices=['simple', 'bert'], help='type of model')
+    parser.add_argument('-model', type=str, default='bert',choices=['mlp', 'bert', 'lstm'], help='type of model')
     parser.add_argument('-hidden', type=int, default=128, help='hidden size of transformer model')
     parser.add_argument('-layers', type=int, default=4, help='number of layers of bert')
     parser.add_argument('-attn_heads', type=int, default=4, help='number of attention heads in transformer')
     parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') 
-    parser.add_argument('-dropout', type=float, default=0.05, help='dropout rate') 
+    parser.add_argument('-dropout', type=float, default=0.1, help='dropout rate') 
     parser.add_argument('-emb_type', type=str, default='lookup', 
                 help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair'])
     parser.add_argument('-activation', type=str, default='gelu', help='activation function') 

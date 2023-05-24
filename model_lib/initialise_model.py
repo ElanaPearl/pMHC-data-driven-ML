@@ -11,6 +11,7 @@ from model_lib.bert import BERT
 from model_lib.models import *
 from model_lib.utils import weights_init
 from collections import OrderedDict
+from model_lib.mhc_attnet import MHCAttnNet
 # import fb_esm as esm
 
 def get_bert(args, vocab_size):
@@ -55,8 +56,13 @@ def initialise_model(args, vocab_size, num_classes, device):
                 vocab_size,
                 num_classes,
                 device)
-    else:
+    elif args.model == 'mlp':
         model = SimpleMLP(args.hidden)
+        model.apply(weights_init)
+        model = model.to(device)
+        return model
+    elif args.model == 'lstm':
+        model = MHCAttnNet()
         model.apply(weights_init)
         model = model.to(device)
         return model
