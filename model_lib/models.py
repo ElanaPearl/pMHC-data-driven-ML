@@ -11,6 +11,60 @@ from torch.nn.utils.weight_norm import weight_norm
 from model_lib.layers import TransformerEncoderLayer
 from model_lib.embedding import PositionalEmbedding
 
+class Classifier(nn.Module):
+    def __init__(self, hidden, dropout=0.1):
+        super().__init__()
+        self.dropout = nn.Dropout(dropout)
+        self.linear1 = nn.Linear(hidden*2, int(hidden)*2)
+        self.nonlinear = nn.ReLU()
+        self.linear2 = nn.Linear(int(hidden)*2, 1)
+
+    def forward(self, x1,x2,x1_seq=None,x2_seq=None):
+        # x1 = x1[:,1:,:].mean(1)
+        # x2 = x2[:,1:,:].mean(1)
+        v_out = torch.cat((x1,x2),1)
+        v_out = self.dropout(v_out)
+        out = self.linear1(v_out)
+        v_out = self.nonlinear(v_out)
+        v_out = self.dropout(v_out)
+        out = self.linear2(v_out)
+        return out.view(-1)
+
+
+class MLP(nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(MLP, self).__init__()
+        self.fc1 = nn.Linear(input_size, hidden_size)
+        self.fc2 = nn.Linear(hidden_size, hidden_size)
+        self.fc3 = nn.Linear(hidden_size, hidden_size)
+        self.fc4 = nn.Linear(hidden_size, hidden_size)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        out = self.fc1(x)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.relu(out)
+        out = self.fc3(out)
+        out = self.relu(out)
+        out = self.fc4(out)
+        return out
+
+class SimpleMLP(nn.Module):
+    def __init__(self, hidden_size):
+        super(SimpleMLP, self).__init__()
+        self.pep_mlp = MLP(input_size=20*8, hidden_size=128)
+        self.mhc_mlp = MLP(input_size=20*34, hidden_size=128)
+        self.classifier = Classifier(128)
+
+    def forward(self, pep, mhc):
+        bs = pep.shape[0]
+        pep = self.pep_mlp(pep.reshape(bs,-1).float())
+        mhc = self.mhc_mlp(mhc.reshape(bs,-1).float())
+        task_outputs = self.classifier.forward(pep,mhc)
+
+        return task_outputs
+
 
 class TokenClassifierModel(nn.Module):
     def __init__(self, bert, n_classes, dropout,esm=False):
@@ -116,9 +170,6 @@ class PairwiseClassifierModel(nn.Module):
         x1,conv_out1 = self.bert(x1_in)
         x2,conv_out2= self.bert(x2_in)
         task_outputs = self.classifier.forward(x1,x2)
-        a, b, c = torch.isnan(x1).any(), torch.isnan(x2).any(), torch.isnan(task_outputs).any()
-        if a or b or c: 
-            import ipdb; ipdb.set_trace()
 
         return task_outputs
 
@@ -229,6 +280,7 @@ class OrderedClassifier(nn.Module):
     def forward(self, x1,x2,x1_seq=None,x2_seq=None):
         # x1 = x1[:,1:,:].mean(1)
         # x2 = x2[:,1:,:].mean(1)
+
         x1 = x1[:,0,:].contiguous()
         x2 = x2[:,0,:].contiguous()
         v_out = torch.cat((x1,x2),1)

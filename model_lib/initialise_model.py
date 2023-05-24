@@ -42,16 +42,27 @@ def get_classifier(bert, args, vocab_size, num_classes, device):
     return model
 
 
-def initialise_model(args, vocab_size, num_classes, device):
-    print("Building BERT model")
-    bert = get_bert(args, vocab_size)
 
-    return get_classifier(
-            bert,
-            args,
-            vocab_size,
-            num_classes,
-            device)
+
+def initialise_model(args, vocab_size, num_classes, device):
+    if args.model == 'bert':
+        print("Building BERT model")
+        bert = get_bert(args, vocab_size)
+
+        return get_classifier(
+                bert,
+                args,
+                vocab_size,
+                num_classes,
+                device)
+    else:
+        model = SimpleMLP(args.hidden)
+        model.apply(weights_init)
+        model = model.to(device)
+        return model
+
+
+
 
 
 ######## Unit Test ########

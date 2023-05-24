@@ -7,8 +7,8 @@ from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import numpy as np 
 # import blosum 
 
-PAD_ID = 20
-AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'])
+PAD_ID = 21
+AA_LIST = np.array(['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', 'X'])
 
 def load_blosum_as_dict(bl_type=62):
     """ 
@@ -56,6 +56,7 @@ class pMHCDataset(Dataset):
             cv_splits = self.data.cv_split.unique()
         self.data = self.data[self.data.cv_split.isin(cv_splits)]
 
+
         # Set up for optional preprocessing / representing peptide and MHC AA data 
         self.peptide_repr = peptide_repr
         self.max_peptide_len = max_peptide_len
@@ -93,10 +94,9 @@ class pMHCDataset(Dataset):
     def __getitem__(self, index):
         series = self.data.iloc[index]
         
-        peptide = series.peptide
+        peptide = series.peptide[:8]
         mhc = series.mhc_pseudo_seq
         if self.peptide_repr in ['1hot', 'indices']:
-            #TODO: HACK! FIX (the [:8])
             peptide, pep_len = self._get_aa_1hot_repr(peptide,
                                                       repr=self.peptide_repr, 
                                                       pad_to=self.max_peptide_len)
@@ -128,7 +128,6 @@ def get_dataloader(df_path: str,
     Get training / validation dataloaders using pMHCDataset class 
     """
     ds = pMHCDataset(df_path, cv_splits, peptide_repr, mhc_repr=mhc_repr)
-    # print(ds[0]['peptide'])
     ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
     return ds_loader
 

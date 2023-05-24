@@ -9,6 +9,8 @@ import numpy as np
 import torch.nn as nn
 import torch
 from tqdm import tqdm 
+import ipdb 
+
 
 vocab_size = 20
 
@@ -31,14 +33,18 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
 
     model_output = model_output.detach().cpu().numpy()
     true_labels = true_labels.detach().cpu().numpy()
-    if len(np.unique(true_labels)) == 1: 
+    BA_true_mean = true_labels.mean()
+    BA_pred_std = model_output.std()
+
+    # true_labels = (true_labels > .5).astype(float)
+    # model_output = np.clip(model_output, 0,1)
+    metrics = {f"{folder}/loss": loss.item(), f'{folder}/BA_mean': BA_true_mean, f'{folder}/BA_std': BA_pred_std}
+
+    if len(np.unique(true_labels)) == 2: 
         # only compute AUROC / AUPRC if postive class is present
-        metrics = {f"{folder}/loss": loss.item()}
-    else:
         auroc = roc_auc_score(true_labels, model_output)
         auprc = average_precision_score(true_labels, model_output)
-        metrics = {f"{folder}/loss": loss.item(), 
-                    f'{folder}/aucroc': auroc, f'{folder}/aucprc': auprc}
+        metrics.update({f'{folder}/aucroc': auroc, f'{folder}/aucprc': auprc})
     
     wandb.log(metrics)
 
@@ -48,11 +54,15 @@ def train_pMHC(args):
     """
 
     # Create model, based on DeepVHPPI (bert)
-    device =  "cpu" # "cuda:0" # if args.use_cuda else 'cpu'
+    device =  "cuda" if args.use_cuda else 'cpu'
+    if device == 'cuda':
+        import os
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4"
+
     model = initialise_model(args, vocab_size=vocab_size+1, num_classes=1, device=device)
     model = model.to(device)
     # Loss fn = weighted BCE 
-    weight = torch.tensor([20.0]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
+    weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
 
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
@@ -60,19 +70,31 @@ def train_pMHC(args):
     # Load data - training data is the MA classifcation data. We ignore the 8ish million
     # multiple allele data and keep the 4ish million single allele data
 
-    train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
+    # train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
+    #                               peptide_repr = args.peptide_repr, 
+    #                               mhc_repr = args.mhc_repr,
+    #                               batch_size = args.batch_size,
+    #                               shuffle = True)
+    
+    # # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
+    # val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
+    #                             peptide_repr = args.peptide_repr, 
+    #                             mhc_repr = args.mhc_repr,
+    #                             batch_size = args.batch_size,
+    #                             shuffle = False)
+    train_loader = get_dataloader(args.tr_df_path, cv_splits = [0,1,2,3], 
                                   peptide_repr = args.peptide_repr, 
                                   mhc_repr = args.mhc_repr,
                                   batch_size = args.batch_size,
                                   shuffle = True)
     
+
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
-    val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
+    val_loader = get_dataloader(args.tr_df_path, cv_splits = 4, 
                                 peptide_repr = args.peptide_repr, 
                                 mhc_repr = args.mhc_repr,
                                 batch_size = args.batch_size,
                                 shuffle = False)
-
     wandb.init(
         # set the wandb project where this run will be logged
         project="pMHC",
@@ -80,21 +102,18 @@ def train_pMHC(args):
         config=args
     )
 
-    sig = nn.Sigmoid()
     print(len(train_loader))
     for epoch in range(args.n_epochs):
         for i, data in enumerate(tqdm(train_loader)):
+
             model.train()
             peptide = data['peptide'].long().to(device)
             mhc = data['mhc'].long().to(device)
             affinity = data['BA'].float().to(device)
+            if args.train_regression_thresh:
+                affinity = (affinity > .426).float()
             pred_affinity = model(peptide, mhc)
             loss = loss_fn(pred_affinity, affinity)
-            # pred_prob = sig(pred_affinity)
-            # print(pred_prob)
-
-            if torch.isnan(loss).any():
-                continue            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -104,10 +123,10 @@ def train_pMHC(args):
                 import ipdb; ipdb.set_trace()
             log_wandb(pred_affinity, affinity, loss)
             
-            if (i + 1) % 100 == 0:
+            if (i + 1) % 500 == 0:
                 print(f"Epoch [{epoch + 1}/{args.n_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}")
 
-            if i % 50 == 0:
+            if i % 1000 == 0:
                 # Test the model on regression data 
                 model.eval()
                 with torch.no_grad():
@@ -118,6 +137,8 @@ def train_pMHC(args):
                         peptide = data['peptide'].long().to(device)
                         mhc = data['mhc'].long().to(device)
                         affinity = data['BA'].float().to(device)
+                        if args.train_regression_thresh:
+                            affinity = (affinity > .426).float()
                         pred_affinity = model(peptide, mhc)
                         loss += loss_fn(pred_affinity, affinity)
                         affinity_lst.append(affinity.detach().cpu().view(-1))
@@ -136,9 +157,11 @@ if __name__ == '__main__':
 
     # Misc arguments
     parser.add_argument('-learning_rate', type=float, default=1e-3, help='learning rate for training')
-    parser.add_argument('-n_epochs', type=int, default=100, help='number of epochs to train')
+    parser.add_argument('-n_epochs', type=int, default=500, help='number of epochs to train')
+    parser.add_argument('-pos_weight', type=float, default=20., help='pos weight for BCE Loss')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
+    parser.add_argument('-train_regression_thresh', action='store_true', help='train with regression data and threshold for classificaiton')
 
     # Data arguments
     parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe')
@@ -147,13 +170,14 @@ if __name__ == '__main__':
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
 
     # Model arguments
-    parser.add_argument('-hidden', type=int, default=256, help='hidden size of transformer model')
-    parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
+    parser.add_argument('-model', type=str, default='bert',choices=['simple', 'bert'], help='type of model')
+    parser.add_argument('-hidden', type=int, default=128, help='hidden size of transformer model')
+    parser.add_argument('-layers', type=int, default=4, help='number of layers of bert')
     parser.add_argument('-attn_heads', type=int, default=4, help='number of attention heads in transformer')
-    parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') # TODO 
-    parser.add_argument('-dropout', type=float, default=0, help='dropout rate') 
+    parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') 
+    parser.add_argument('-dropout', type=float, default=0.05, help='dropout rate') 
     parser.add_argument('-emb_type', type=str, default='lookup', 
-                help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair']) # TODO 
+                help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair'])
     parser.add_argument('-activation', type=str, default='gelu', help='activation function') 
 
     # Parse the command-line arguments
