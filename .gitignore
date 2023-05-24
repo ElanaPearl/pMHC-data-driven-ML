@@ -1,2 +1,5 @@
 *pycache*
 *.swp
+__pycache__
+wandb
+data

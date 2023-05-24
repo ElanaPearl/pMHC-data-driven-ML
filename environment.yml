@@ -19,5 +19,4 @@ dependencies:
   - scipy
   - seaborn
   - tqdm
-  - blosum 
   - wandb

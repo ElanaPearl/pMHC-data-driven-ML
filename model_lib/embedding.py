@@ -10,8 +10,7 @@ import numpy as np
 from typing import List, Tuple
 import torch.nn.functional as F
 from model_lib.layers import Highway
-
-
+from vocab import *
 
 class PositionalEmbedding(nn.Module):
 
@@ -38,7 +37,7 @@ class PositionalEmbedding(nn.Module):
 class BERTEmbedding(nn.Module):
     def __init__(self, vocab_size, embed_size, dropout=0.1,max_len=512,pos='sin'):
         super().__init__()
-        self.token = nn.Embedding(vocab_size,embed_size,padding_idx=0)
+        self.token = nn.Embedding(vocab_size,embed_size,padding_idx=PAD_ID)
         self.pos = pos
         if self.pos == 'sin':
             self.position = PositionalEmbedding(d_model=self.token.embedding_dim,max_len=max_len)
@@ -48,7 +47,9 @@ class BERTEmbedding(nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, sequence,psi=None):
+        # mask = (sequence != PAD_ID)[:,:,None]
         if self.pos == 'sin':
+            # embeddings = (self.token(sequence) + self.position(sequence))*mask
             embeddings = self.token(sequence) + self.position(sequence)
         else:
             position_ids = torch.arange(sequence.size(1), dtype=torch.long).cuda()
@@ -67,7 +68,7 @@ class BERTEmbeddingConv(nn.Module):
         highway_layers = 1
 
         onehot_dim = vocab_size-1
-        self.onehot = nn.Embedding(vocab_size,onehot_dim,padding_idx=0)
+        self.onehot = nn.Embedding(vocab_size,onehot_dim,padding_idx=PAD_ID)
         self.onehot.weight.requires_grad = False
         self.onehot.weight[1:] = torch.eye(onehot_dim)
 
@@ -208,7 +209,7 @@ class BERTEmbeddingBoth(nn.Module):
         highway_layers = 1
 
         onehot_dim = 29-1
-        self.onehot = nn.Embedding(29,onehot_dim,padding_idx=0)
+        self.onehot = nn.Embedding(29,onehot_dim,padding_idx=PAD_ID)
         self.onehot.weight.requires_grad = False
         self.onehot.weight[1:] = torch.eye(onehot_dim)
 
@@ -263,7 +264,7 @@ class BERTEmbeddingPair(nn.Module):
         highway_layers = 1
         
         self.onehot_dim = vocab_size
-        self.onehot = nn.Embedding(vocab_size,self.onehot_dim,padding_idx=0)
+        self.onehot = nn.Embedding(vocab_size,self.onehot_dim,padding_idx=PAD_ID)
         self.onehot.weight.requires_grad = False
         self.onehot.weight.fill_(0)
         self.onehot.weight[1:,0:-1] = torch.eye(self.onehot_dim-1)
