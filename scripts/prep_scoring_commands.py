@@ -45,7 +45,7 @@ def main(
     output_dir: Path = Path("netmhcpan_el_results"),
     n_cell_lines: int = 10,
 ):
-    print("Getting data to deconvolute"")
+    print("Getting data to deconvolute")
     el_ma_actives = get_data_to_decovolute(multi_allele_path)
 
     if not os.path.exists(intermediate_save_dir):
@@ -53,8 +53,8 @@ def main(
     if not os.path.exists(output_dir):
         os.mkdir(output_dir)
 
-    cell_lines =  el_ma_actives["cell_line"].value_counts().index.tolist()
-    cell_lines = cell_lines[:min(n_cell_lines, len(cell_lines))]
+    cell_lines = el_ma_actives["cell_line"].value_counts().index.tolist()
+    cell_lines = cell_lines[: min(n_cell_lines, len(cell_lines))]
 
     print("Writing fastas to score")
     commands_to_run = []
@@ -69,7 +69,7 @@ def main(
                 name=f"{cell_line}_{peptide_len}",
                 save_dir=intermediate_save_dir,
             )
-            peptide_lens = ",".join([peptide_len] * len(allele_list))
+            peptide_lens = ",".join([str(peptide_len)] * len(allele_list))
             output_path = output_dir / f"{cell_line}_{peptide_len}.tsv"
             commands_to_run.append(
                 f"{path_to_predict_file} netmhcpan_el {allele_list} {peptide_lens} {peptide_fasta} > {output_path}"
