@@ -11,6 +11,7 @@ import torch
 from tqdm import tqdm
 from vocab import * 
 import ipdb 
+import os 
 
 
 
@@ -56,12 +57,10 @@ def train_pMHC(args):
     # Create model, based on DeepVHPPI (bert)
     device =  "cuda" if args.use_cuda else 'cpu'
     if device == 'cuda':
-        import os
         os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4"
 
-    model = initialise_model(args, vocab_size=VOCAB_SIZE, num_classes=1, device=device)
+    model = initialise_model(args, vocab_size=21+1, num_classes=1, device=device)
     model = model.to(device)
-
     # Loss fn = weighted BCE 
     weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
@@ -103,10 +102,13 @@ def train_pMHC(args):
         config=args
     )
 
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
     print(len(train_loader))
     for epoch in range(args.n_epochs):
         for i, data in enumerate(tqdm(train_loader)):
-
+            torch.save(model.state_dict(), f'{args.save_path}/{wandb.run.name}_ckpt_e{epoch}_i{i}.pth')
+            print(2/0)
             model.train()
             peptide = data['peptide'].long().to(device)
             mhc = data['mhc'].long().to(device)
@@ -149,6 +151,8 @@ def train_pMHC(args):
                 affinity_lst = torch.concat(affinity_lst)
                 pred_affinity_lst = torch.concat(pred_affinity_lst)
                 log_wandb(pred_affinity_lst, affinity_lst.long(), average_loss, folder='val')    
+        
+        torch.save(model.state_dict(), f'{args.save_path}/{wandb.run.name}_ckpt_e{epoch}_i{i}.pth')
 
 
 if __name__ == '__main__':
@@ -163,6 +167,7 @@ if __name__ == '__main__':
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
     parser.add_argument('-train_regression_thresh', action='store_true', help='train with regression data and threshold for classificaiton')
+    parser.add_argument('-save_path', type=str, default='./ckpt/', help='Path to dump ckpts')
 
     # Data arguments
     parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe')
