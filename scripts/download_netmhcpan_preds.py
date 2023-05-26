@@ -8,13 +8,20 @@ import pandas as pd
 
 
 def standardize_allele_name(allele_name):
-    if not allele_name.startswith("HLA-"):
+    if allele_name.startswith("HLA-"):
+        if "*" not in allele_name:
+            allele_name = allele_name[:5] + "*" + allele_name[5:]
+        if ":" not in allele_name:
+            allele_name = allele_name[:8] + ":" + allele_name[8:]
         return allele_name
-    if "*" not in allele_name:
-        allele_name = allele_name[:5] + "*" + allele_name[5:]
-    if ":" not in allele_name:
-        allele_name = allele_name[:8] + ":" + allele_name[8:]
-    return allele_name
+    elif allele_name.upper().startswith("BOLA"):
+        prefix = allele_name.split("-")[1]
+        if prefix[1].isdigit():
+            if ":" not in prefix:
+                prefix = prefix[0] + ":" + prefix[1:]
+        return "BoLA-" + prefix
+    else:
+        return allele_name
 
 
 def convert_web_result_to_df(result: str) -> pd.DataFrame:
@@ -48,13 +55,17 @@ def get_netmhcpan_predictions(
 
     retry_attempts = 0
     need_to_retry = True
-    while need_to_retry and retry_attempts < 10:
+    while need_to_retry and retry_attempts < 5:
         try:
             res_df = convert_web_result_to_df(result)
             return res_df
-        except Exception as e:
+        except Exception:
             retry_attempts += 1
-            time.sleep(2)
+            time.sleep(3)
+            # write result to error file
+            with open("netmhcpan_errors.txt", "a") as f:
+                f.write(f"{peptide_seq}\t{hla_name_str}\n")
+                f.write(result + "\n")
             result = os.popen(
                 f"curl --data '{method_str}' http://tools-cluster-interface.iedb.org/tools_api/mhci/"
             ).read()
@@ -118,6 +129,7 @@ def get_batch_of_preds(
 def batch_processing(
     chunked_dfs: list[pd.DataFrame], intermediate_cache_dir: str
 ):
+    n_failed_batches = 0
     for i, chunk in enumerate(chunked_dfs):
         cache_path = os.path.join(intermediate_cache_dir, f"{i}.csv")
         if not os.path.exists(cache_path):
@@ -126,6 +138,13 @@ def batch_processing(
                 hla_strs_batch=chunk["allele"],
                 save_path=cache_path,
             )
+            if not os.path.exists(cache_path):
+                n_failed_batches += 1
+                print(f"Failed to get batch {i}")
+
+        if n_failed_batches > 5:
+            print("Too many failed batches, stopping now")
+            break
 
 
 def combine_downloaded_files(
@@ -143,7 +162,7 @@ def get_preds_on_MA_data(
 ):
     # read in Eluted-Ligand data
     print("Reading data")
-    el_ma_actives = pd.read_csv(ma_data_path, nrows=50).query(
+    el_ma_actives = pd.read_csv(ma_data_path).query(
         "n_possible_alleles > 1 and presented == 1"
     )
 
@@ -158,23 +177,23 @@ def get_preds_on_MA_data(
         intermediate_cache_dir.mkdir(exist_ok=True, parents=True)
 
     # create chunked lists of the dataset
-    chunked_dfs = np.array_split(el_ma_actives, 10)
+    chunked_dfs = np.array_split(ary=el_ma_actives, indices_or_sections=2000)
 
     print(f"Getting predictions for {len(el_ma_actives)} peptides")
     s = time.time()
     batch_processing(chunked_dfs, intermediate_cache_dir)
     print(f"Done in {time.time() - s:.2f} seconds")
 
-    print("combining")
-    combine_downloaded_files(
-        download_dir=intermediate_cache_dir,
-        output_path=save_dir / "netmhcpan_preds.csv",
-    )
-    print("Done")
+    # print("combining")
+    # combine_downloaded_files(
+    #     download_dir=intermediate_cache_dir,
+    #     output_path=save_dir / "netmhcpan_preds.csv",
+    # )
+    # print("Done")
 
 
 if __name__ == "__main__":
     get_preds_on_MA_data(
         ma_data_path=Path("../data/IEDB_classification_data.csv"),
-        save_dir=Path("netmhc_preds_50/"),
+        save_dir=Path("netmhc_preds_all/"),
     )
