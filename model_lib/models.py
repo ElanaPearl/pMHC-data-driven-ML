@@ -10,6 +10,7 @@ from model_lib.bert import BERT
 from torch.nn.utils.weight_norm import weight_norm
 from model_lib.layers import TransformerEncoderLayer
 from model_lib.embedding import PositionalEmbedding
+from vocab import * 
 
 class Classifier(nn.Module):
     def __init__(self, hidden, dropout=0.1):
@@ -53,9 +54,9 @@ class MLP(nn.Module):
 class SimpleMLP(nn.Module):
     def __init__(self, hidden_size):
         super(SimpleMLP, self).__init__()
-        self.pep_mlp = MLP(input_size=20*8, hidden_size=128)
-        self.mhc_mlp = MLP(input_size=20*34, hidden_size=128)
-        self.classifier = Classifier(128)
+        self.pep_mlp = MLP(input_size=VOCAB_SIZE*15, hidden_size=hidden_size)
+        self.mhc_mlp = MLP(input_size=VOCAB_SIZE*34, hidden_size=hidden_size)
+        self.classifier = Classifier(hidden_size)
 
     def forward(self, pep, mhc):
         bs = pep.shape[0]

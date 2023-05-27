@@ -112,29 +112,32 @@ def map_mhc_to_pseudo_seq(MHC_pseudo_file: Path):
 
 
 if __name__ == "__main__":
-    download_url = "https://services.healthtech.dtu.dk/suppl/immunology/NAR_NetMHCpan_NetMHCIIpan/NetMHCpan_train.tar.gz"
-    data_dir = Path("./data")
+    # download_url = "https://services.healthtech.dtu.dk/suppl/immunology/NAR_NetMHCpan_NetMHCIIpan/NetMHCpan_train.tar.gz"
+    # data_dir = Path("./data")
 
-    print("Downloading data...")
-    netmhc_data_folder = download_data(download_url=download_url, download_dir=data_dir)
-    mhc_to_pseudo_seq = map_mhc_to_pseudo_seq(netmhc_data_folder / "MHC_pseudo.dat")
+    # print("Downloading data...")
+    # netmhc_data_folder = download_data(download_url=download_url, download_dir=data_dir)
+    # mhc_to_pseudo_seq = map_mhc_to_pseudo_seq(netmhc_data_folder / "MHC_pseudo.dat")
 
-    print("Reformatting el data...")
-    reformat_downloaded_el_data(
-        netmhc_data_folder,
-        output_path=data_dir / "IEDB_classification_data.csv",
-        mhc_to_pseudo_seq=mhc_to_pseudo_seq,
-    )
+    # print("Reformatting el data...")
+    # reformat_downloaded_el_data(
+    #     netmhc_data_folder,
+    #     output_path=data_dir / "IEDB_classification_data.csv",
+    #     mhc_to_pseudo_seq=mhc_to_pseudo_seq,
+    # )
 
-    print("Reformatting data...")
-    reformat_downloaded_ba_data(
-        netmhc_data_folder,
-        output_path=data_dir / "IEDB_regression_data.csv",
-        mhc_to_pseudo_seq=mhc_to_pseudo_seq,
-    )
+    # print("Reformatting data...")
+    # reformat_downloaded_ba_data(
+    #     netmhc_data_folder,
+    #     output_path=data_dir / "IEDB_regression_data.csv",
+    #     mhc_to_pseudo_seq=mhc_to_pseudo_seq,
+    # )
 
-    print("Filtering and saving SA classification dataset...")
-    pp_classifciation_data(load_path=data_dir / "IEDB_classification_data.csv",
-                            save_path=data_dir / "IEDB_classification_data_SA.csv")
+    # print("Filtering and saving SA classification dataset...")
+    # pp_classifciation_data(load_path=data_dir / "IEDB_classification_data.csv",
+    #                         save_path=data_dir / "IEDB_classification_data_SA.csv")
 
-    print("Done!")
+    # print("Done!")
+    ma = pd.read_csv('./data/IEDB_classification_MA_v1.csv')
+    sa = pd.read_csv('./data/IEDB_classification_data_SA.csv')
+    import ipdb; ipdb.set_trace()

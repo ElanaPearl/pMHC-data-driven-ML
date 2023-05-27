@@ -54,8 +54,7 @@ class pMHCDataset(Dataset):
         elif cv_splits is None:
             cv_splits = self.data.cv_split.unique()
         self.data = self.data[self.data.cv_split.isin(cv_splits)]
-
-
+        
         # Set up for optional preprocessing / representing peptide and MHC AA data 
         self.peptide_repr = peptide_repr
         self.max_peptide_len = max_peptide_len
@@ -121,19 +120,23 @@ def get_dataloader(df_path: str,
                    peptide_repr: str = '1hot',
                    mhc_repr: str= '1hot',
                    batch_size: int = 32,
-                   shuffle = True):
+                   shuffle: bool = True,
+                   return_df: bool = False):
     """
     Get training / validation dataloaders using pMHCDataset class 
     """
     ds = pMHCDataset(df_path, cv_splits, peptide_repr, mhc_repr=mhc_repr)
     ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
+    if return_df:
+        return ds_loader, ds.data
     return ds_loader
 
 
 if __name__ == '__main__': 
     ds = pMHCDataset(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None, 
-                peptide_repr='indices', mhc_repr='indices')
+                peptide_repr='indices', mhc_repr='indices', random_pad=True)
     ds[0]
+    import ipdb; ipdb.set_trace()
     ds_loader = get_dataloader(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None,
         peptide_repr='indices', mhc_repr='indices')
         
