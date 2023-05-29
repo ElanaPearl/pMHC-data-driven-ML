@@ -62,7 +62,9 @@ def initialise_model(args, vocab_size, num_classes, device):
         model = model.to(device)
         return model
     elif args.model == 'lstm':
-        model = MHCAttnNet(embed_dim=args.embed_dim, hidden_size=args.hidden, dropout=args.dropout)
+        model = MHCAttnNet(embed_dim=args.embed_dim, 
+                    hidden_size=args.hidden, dropout=args.dropout, 
+                    n_layers=args.layers)
         model.apply(weights_init)
         model = model.to(device)
         return model

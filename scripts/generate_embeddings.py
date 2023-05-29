@@ -44,19 +44,16 @@ def generate_embeds(args):
         args.save_path = f'./embeds/{file}.csv'
 
     latents = [] # latents, penultimate layer of model
-    names = [] # for sanity check of alignment 
     pred_affinities = []
     with torch.no_grad():
         for data in tqdm(loader): 
             peptide = data['peptide'].long().to(device)
             mhc = data['mhc'].long().to(device)
             affinity = data['BA'].float().to(device)
-            names += data['mhc_name']
+            
             pred_affinity, z = model(peptide, mhc, return_z=True)
-
             pred_affinities.append(pred_affinity.detach().cpu().numpy())
             latents.append(z.detach().cpu().numpy())
-            
                 
 
     pred_affinities = np.concatenate(pred_affinities)
@@ -81,13 +78,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='pMHC Training Script')
 
     # Misc arguments
-    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37_i16067.pth')
+    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37.pth')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-seed', type=int, default=42, help='seed')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
     parser.add_argument('-save_path', type=str, default='', help='Path to dump ckpts')
 
-    # Data arguments './data/IEDB_regression_data.csv'
+    # Data arguments 
     parser.add_argument('-df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
@@ -96,6 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('-hidden', type=int, default=64, help='hidden size of transformer model')
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-model', type=str, default='lstm',choices=['mlp', 'bert', 'lstm'], help='type of model')
+    parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
 
     # Parse the command-line arguments
     args = parser.parse_args()

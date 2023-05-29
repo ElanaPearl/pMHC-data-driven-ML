@@ -36,8 +36,6 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
     BA_true_mean = true_labels.mean()
     BA_pred_std = model_output.std()
 
-    # true_labels = (true_labels > .5).astype(float)
-    # model_output = np.clip(model_output, 0,1)
     metrics = {f"{folder}/loss": loss.item(), f'{folder}/BA_mean': BA_true_mean, f'{folder}/BA_std': BA_pred_std}
 
     if len(np.unique(true_labels)) == 2: 
@@ -101,8 +99,6 @@ def train_pMHC(args):
             peptide = data['peptide'].long().to(device)
             mhc = data['mhc'].long().to(device)
             affinity = data['BA'].float().to(device)
-            if args.train_regression_thresh:
-                affinity = (affinity > .426).float()
             pred_affinity = model(peptide, mhc)
 
             loss = loss_fn(pred_affinity, affinity)
@@ -126,7 +122,7 @@ def train_pMHC(args):
                         peptide = data['peptide'].long().to(device)
                         mhc = data['mhc'].long().to(device)
                         affinity = data['BA'].float().to(device)
-                        if args.train_regression_thresh or 'regression' in args.val_df_path:
+                        if 'regression' in args.val_df_path:
                             affinity = (affinity > .426).float()
                         pred_affinity = model(peptide, mhc)
                         loss += loss_fn(pred_affinity, affinity)
@@ -138,7 +134,7 @@ def train_pMHC(args):
                 pred_affinity_lst = torch.concat(pred_affinity_lst)
                 log_wandb(pred_affinity_lst, affinity_lst.long(), average_loss, folder='val')    
         
-        torch.save(model.state_dict(), f'{args.save_path}/{wandb.run.name}_ckpt_e{epoch}_i{i}.pth')
+        torch.save(model.state_dict(), f'{args.save_path}/{wandb.run.name}_ckpt_e{epoch}.pth')
         
 
 if __name__ == '__main__':
@@ -148,20 +144,18 @@ if __name__ == '__main__':
 
     # Misc arguments
     parser.add_argument('-learning_rate', type=float, default=1e-3, help='learning rate for training')
-    parser.add_argument('-n_epochs', type=int, default=500, help='number of epochs to train')
-    parser.add_argument('-pos_weight', type=float, default=20., help='pos weight for BCE Loss')
-    parser.add_argument('-batch_size', type=int, default=256, help='batch size')
-    parser.add_argument('-seed', type=int, default=42, help='seed')
+    parser.add_argument('-n_epochs', type=int, default=200, help='number of epochs to train')
+    parser.add_argument('-pos_weight', type=float, default=20., help='pos weight for BCE Loss; should be 1/(% pos in data)')
+    parser.add_argument('-batch_size', type=int, default=512, help='batch size')
+    parser.add_argument('-seed', type=int, default=42, help='seed; oddly super important - other seeds not 42 do not work')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
-    parser.add_argument('-train_regression_thresh', action='store_true', help='train with regression data and threshold for classificaiton')
     parser.add_argument('-save_path', type=str, default='./ckpt/', help='Path to dump ckpts')
 
-    # Data arguments
-    parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_SA_MA_v1.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
+    # Data arguments 
+    parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
     parser.add_argument('-val_df_path', type=str, default='./data/IEDB_regression_data.csv', help='Path to load val / test dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
-    parser.add_argument('-random_pad', action='store_true', help='random pad peptides by left and right side')
 
 
     # Model arguments
@@ -169,12 +163,17 @@ if __name__ == '__main__':
     parser.add_argument('-hidden', type=int, default=64, help='hidden size of transformer model')
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
-    parser.add_argument('-attn_heads', type=int, default=2, help='number of attention heads in transformer')
-    parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') 
     parser.add_argument('-dropout', type=float, default=0.0, help='dropout rate') 
-    parser.add_argument('-emb_type', type=str, default='lookup', 
-                help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair'])
-    parser.add_argument('-activation', type=str, default='gelu', help='activation function') 
+
+
+    ## NOTE: These arguments are used for BERT training. Commented out for simplicity / ease of read,
+    ## but if we want to train bert, would need to uncomment these 
+
+    # parser.add_argument('-attn_heads', type=int, default=2, help='number of attention heads in transformer')
+    # parser.add_argument('-seq_len', type=int, default=34, help='maximum sequence length') 
+    # parser.add_argument('-emb_type', type=str, default='lookup', 
+    #             help='embedding type', choices=['lookup', 'conv', 'continuous', 'both', 'pair'])
+    # parser.add_argument('-activation', type=str, default='gelu', help='activation function') 
 
 
     # Parse the command-line arguments
