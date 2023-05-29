@@ -7,6 +7,11 @@
 
 ## Training the model 
 The model can be trained by running `python main.py {args}`. The recommended run is `python main.py -use_cuda` where the recommended hyperparameters are by default. 
+
+### Data
+By default, the model is trained on all 5 splits of the classification single allele data. This is ~4ish million data points with (noisy) binary labels. Only 5% positives. 
+
+The validation data during training is split = 4 from the high quality regression data (so <50k points). Splits 0,1,2,3 from regression are the test data. 
 ### Hyperparameter notes and training recommendations
 * `-use_cuda` necessecity / strongly recommended. 
 * Model hyperparameters are already tuned (ie. learning rate, model params, etc.) and are recommended to leave as they are. Set as default. 
