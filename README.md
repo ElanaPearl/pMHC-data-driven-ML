@@ -21,6 +21,7 @@ Since the model runs for an indeterminate set of time, and generating all classi
 * `-model_path` - where the model weights are stowed. For example, './ckpt/sage-haze-125_ckpt_e37.pth'.
 * `-df_path` - what dataset to generate embeddings for. For example, for classification, './data/IEDB_classification_data_SA.csv'. 
 * `-save_path` (optional) - by default, will save the embeddings under './embeds/{wandb run name}_{clssfctn or rgrssn}.csv'.
+
 The output of running this script the same dataframe as in `df_path` but with 3 new column information:
 * pred_affinity - predicted normalized affinity score from the model
 * pred_affinity_logits - predicted logit affinity score from the model
