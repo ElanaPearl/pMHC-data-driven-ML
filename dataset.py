@@ -6,13 +6,14 @@ from typing import Any
 from sklearn.preprocessing import OneHotEncoder, LabelEncoder
 import numpy as np 
 from vocab import *
-# import blosum 
 
 
 def load_blosum_as_dict(bl_type=62):
     """ 
     Load blosum matrix as dictionary.
     """
+    import blosum # install package if you want to use blosum featurization  
+
     bl = blosum.BLOSUM(bl_type)
     dict_aa_repr = {}
     for i, aai in enumerate(AA_LIST):
@@ -26,7 +27,8 @@ class pMHCDataset(Dataset):
     def __init__(self, df_path: str, cv_splits: Any = None,
                     peptide_repr: str = '1hot',
                     mhc_repr: str = '1hot',
-                    max_peptide_len: int = 15):
+                    max_peptide_len: int = 15,
+                    random_pad: bool = False):
         """
         Custom Dataset class for loading pMHC dataset.
 
@@ -59,8 +61,9 @@ class pMHCDataset(Dataset):
         self.peptide_repr = peptide_repr
         self.max_peptide_len = max_peptide_len
         self.mhc_repr = mhc_repr
-        assert self.peptide_repr in ['1hot', 'blosum62', 'string', 'indices'], \
-                    f"peptide_repr must be in options ['1hot', 'blosum62',  'string', 'indices'], found {peptide_repr}"
+        allowable_repr = ['1hot', 'blosum62', 'string', 'indices']
+        assert self.peptide_repr in allowable_repr, \
+                    f"peptide_repr must be in options {allowable_repr}, found {peptide_repr}"
         if self.peptide_repr == '1hot' or self.mhc_repr == '1hot':
             self.aa_encoder = OneHotEncoder(sparse_output=False).fit(AA_LIST.reshape(-1,1))
         if self.peptide_repr == 'blosum62' or self.mhc_repr == 'blosum62':
@@ -69,15 +72,29 @@ class pMHCDataset(Dataset):
             self.aa_encoder = LabelEncoder().fit(AA_LIST.reshape(-1,1))
 
     def _get_aa_1hot_repr(self, aa_sequence: str, repr: str, pad_to = None): 
+        """
+        Get string AA representaiton and convert it to 1hot repr
+        """
         aa_list = np.array(list(aa_sequence)).reshape(-1,1)
-        if repr == 'indices':
-            aa_list = aa_list.squeeze().ravel()
         output = self.aa_encoder.transform(aa_list) 
         seq_len_b4_pad = output.shape[0]
         if pad_to is not None and pad_to - output.shape[0] > 0:
             n = pad_to - output.shape[0]
-            shape = (n, ) if repr == 'indices' else (n, output.shape[1])
-            output = np.concatenate([output, np.ones(shape) * PAD_ID])
+            output = np.concatenate([output, np.ones((n, output.shape[1])) * PAD_ID])
+        return output, seq_len_b4_pad
+
+    def _get_aa_indices_repr(self, aa_sequence: str, repr: str, pad_to = None): 
+        """
+        Get string AA representaiton and convert it to categorical labels / indices
+        matched with where the AA appears in AA_LIST
+        """
+        aa_list = np.array(list(aa_sequence)).reshape(-1,1)
+        aa_list = aa_list.squeeze().ravel()
+        output = self.aa_encoder.transform(aa_list) 
+        seq_len_b4_pad = output.shape[0]
+        if pad_to is not None and pad_to - output.shape[0] > 0:
+            n = pad_to - output.shape[0]
+            output = np.concatenate([output, np.ones((n,)) * PAD_ID])
         return output, seq_len_b4_pad
 
     def _get_blosum_repr(self, aa_sequence: str):
@@ -94,18 +111,26 @@ class pMHCDataset(Dataset):
         
         peptide = series.peptide
         mhc = series.mhc_pseudo_seq
-        if self.peptide_repr in ['1hot', 'indices']:
-            peptide, pep_len = self._get_aa_1hot_repr(peptide,
-                                                      repr=self.peptide_repr, 
+
+        # Peptide representation 
+        pep_len = None
+        if self.peptide_repr =='1hot':
+            peptide, pep_len = self._get_aa_1hot_repr(peptide,repr=self.peptide_repr, 
                                                       pad_to=self.max_peptide_len)
-        if self.mhc_repr in ['1hot', 'indices']:
-            mhc, _ = self._get_aa_1hot_repr(mhc, repr=self.mhc_repr) 
-        
-        if self.peptide_repr == 'blosum62':
-            peptide = self._get_blosum_repr(peptide,)
-        
-        if self.mhc_repr == 'blosum62':
+        elif self.peptide_repr == 'indices':
+            peptide, pep_len = self._get_aa_indices_repr(peptide,repr=self.peptide_repr, 
+                                            pad_to=self.max_peptide_len)
+        elif self.peptide_repr == 'blosum62':
+            peptide = self._get_blosum_repr(peptide)
+
+        # MHC representatin 
+        if self.mhc_repr =='1hot':
+            mhc, _ = self._get_aa_1hot_repr(mhc,repr=self.mhc_repr)
+        elif self.mhc_repr == 'indices':
+            mhc, _ = self._get_aa_indices_repr(mhc,repr=self.mhc_repr)
+        elif self.mhc_repr == 'blosum62':
             mhc = self._get_blosum_repr(mhc)
+
 
         return {'mhc_name': series.mhc_name, # MHC allele name
                 'BA': series.affinity, #binding affinity 
@@ -135,8 +160,6 @@ def get_dataloader(df_path: str,
 if __name__ == '__main__': 
     ds = pMHCDataset(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None, 
                 peptide_repr='indices', mhc_repr='indices', random_pad=True)
-    ds[0]
-    import ipdb; ipdb.set_trace()
     ds_loader = get_dataloader(df_path='./data/IEDB_classification_data_SA.csv', cv_splits=None,
         peptide_repr='indices', mhc_repr='indices')
         

@@ -18,5 +18,5 @@ if __name__ == "__main__":
         ma = ma.rename(columns={'cell_line': 'mhc_name'}).drop(columns='confidence')
         ma['cv_split'] = np.random.randint(5, size=len(ma))
         v_data = pd.concat([sa, ma])
-        v_data.to_csv(f'./data/IEDB_classification_SA_MA_v{v}.csv')
+        v_data.to_csv(f'./data/IEDB_classification_SA_MA_v{v}_highConf.csv')
         print(v_data.affinity.mean())
