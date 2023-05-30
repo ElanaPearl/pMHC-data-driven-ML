@@ -125,7 +125,6 @@ if __name__ == '__main__':
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
     parser.add_argument('-dropout', type=float, default=0.0, help='dropout rate') 
-
     parser.add_argument('-model_path', type=str, default=None, help='pretrained model path')
 
     # Parse the command-line arguments
