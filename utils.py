@@ -30,7 +30,7 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
     Returns:
         None
     """
-    sigmoid = nn.Sigmoid()
+    sigmoid = torch.nn.Sigmoid()
     model_output = sigmoid(model_output).detach().cpu().numpy()
     true_labels = true_labels.detach().cpu().numpy()
 
@@ -86,12 +86,14 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
         all_affinity = torch.concat(all_affinity)
         if sel_type == 'topr':
             # select top r% by each class
+            print('Computing ranking...It might take a while')
             selection_id = []
             for cls in torch.unique(all_affinity):
                 per_cls_rank = torch.argsort(-probs[all_affinity == cls])
                 per_cls_rank = per_cls_rank[:int(len(per_cls_rank) * args.threshold)]
                 selection_id.append(torch.arange(len(probs))[all_affinity == cls][per_cls_rank])
             selection_id = torch.concat(selection_id)
+            torch.save(selection_id, 'selection.pt')
         elif sel_type == 'value':
             selection = probs > args.threshold
             selection_id = torch.arange(len(selection))[selection]

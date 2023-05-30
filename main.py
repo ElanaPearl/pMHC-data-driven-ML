@@ -131,7 +131,7 @@ if __name__ == '__main__':
     # Parse the command-line arguments
     args = parser.parse_args()
     
-    device =  'cpu'# f"cuda:{args.device}"
+    device =  f"cuda:{args.device}"
     print(f'Using {device} for training')
     random.seed(args.seed)
     np.random.seed(args.seed)
