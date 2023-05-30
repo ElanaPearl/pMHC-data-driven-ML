@@ -56,7 +56,8 @@ def train_pMHC(args):
     # Create model, based on DeepVHPPI (bert)
     device =  "cuda" if args.use_cuda else 'cpu'
     if device == 'cuda':
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4"
+        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+    print(f'Using {device} for training')
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
