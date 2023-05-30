@@ -2,7 +2,7 @@
 The implemented methods so far: 
 
 ### Entropy
-Let $\hat{P}(X) =\underset{c \in {\{0,1 \}}}{\max} P(Y=c | X)$ denote the confidence of the model and $\hat{y}_{X} = \underset{c \in {\{0,1 \}}}{\argmax} P(Y=c | X)$  denote the model's prediction. Entropy is simply $$H_{\hat{P}}(X) = \hat{P}(X)(1-\hat{P}(X)).$$
+Let $\hat{P}(X) = \underset{c \in {\{0,1 \}}}{\max} P(Y=c | X)$ denote the confidence of the model and $\hat{y}_{X} = \underset{c \in {\{0,1 \}}}{\argmax} P(Y=c | X)$  denote the model's prediction. Entropy is simply $$H_{\hat{P}}(X) = \hat{P}(X)(1-\hat{P}(X)).$$
 
 ### kNN Confidence
 Let the indices of $k$-nearest neighbors of $X$ be denoted by the set $\mathcal{D}^{(k)}_{X}$. kNN Confidence is defined as $$ \frac{1}{|\mathcal{D}^{(k)}_{X}|} \sum_{i=1}^{\mathcal{D}^{(k)}_{X}} \mathbf{1}[y_i = \hat{y}_x].$$ 

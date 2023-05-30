@@ -29,7 +29,7 @@ def risk_coverage_curve(scores, predictions, labels, num_bins=10):
 
 metric_info = {"Entropy": {"metric_object": methods.Entropy()},
                "TrustScore": {"metric_object": methods.TrustScore()},}
-               "KNNConfidence": {"metric_object": KNNConfidence()}}
+               #"KNNConfidence": {"metric_object": KNNConfidence()}
 
 # Compute risk-coverage tradeoffs for each metric
 for metric_name, metric_dict in metric_info.items():
@@ -39,7 +39,7 @@ for metric_name, metric_dict in metric_info.items():
     
     test_scores = metric_object.get_score(embeddings=test_embeddings, predictions=test_predictions, logits=test_logits)
     metric_dict.update(risk_coverage_curve(test_scores, test_predictions, test_labels))
-    
+
     
 sns.set_context("poster")
 fig, ax = plt.subplots(1, 1, figsize=(10, 5))

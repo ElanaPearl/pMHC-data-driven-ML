@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.special import softmax, expit
 from sklearn.neighbors import KDTree, KNeighborsClassifier
-
+from cleanlab.rank import get_label_quality_scores
 ## Convention: Larger scores, more trustworthy predictions
 
 class Entropy:
@@ -146,3 +146,25 @@ class KNNConfidence:
             knn_outputs == np.transpose(np.tile(y_pred, (self.k, 1))), axis=1
         )
 
+class LabelQuality:
+    """Baseline which uses disagreement to kNN classifier.
+  """
+
+    def __init__(self, method="confidence_weighted_entropy"):
+        """
+        Potential methods are
+        confidence_weighted_entropy
+        normalized_margin
+        self_confidence
+        """
+        self.method = method
+
+    def fit(self, embeddings, labels, logits, predictions, *args, **kwargs):
+        return get_label_quality_scores(labels=labels,
+                                        pred_probs=expit(logits),
+                                        method=self.method)
+    
+    def get_score(self, embeddings, labels, logits, predictions, *args, **kwargs):
+        return get_label_quality_scores(labels=labels,
+                                        pred_probs=expit(logits),
+                                        method=self.method)
