@@ -12,6 +12,7 @@ from dataset import get_dataloader
 from sklearn.metrics import roc_auc_score, average_precision_score
 import wandb
 from vocab import * 
+import pdb
 
 
 def log_wandb(model_output, true_labels, loss, folder='train'):
@@ -64,7 +65,7 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
                                              batch_size = args.batch_size,
                                              shuffle = False, return_df=True)
     ##############################################
-    #               Get predictions              # 
+    #               Get predictions              #
     ##############################################
     model.eval()
     with torch.no_grad():
@@ -75,11 +76,12 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
             peptide = data['peptide'].long().to(device)
             mhc = data['mhc'].long().to(device)
             affinity = data['BA'].long().to(device)
+            print(peptide.size(), mhc.size(), affinity.size())
             pred_affinity = sigmoid(model(peptide, mhc))
             prob = torch.zeros(pred_affinity.size(0), 2).to(device)
-            prob[:, 0] = pred_affinity
-            prob[:, 1] = 1 - pred_affinity
-            probs.append(prob[:, affinity].size(-1))
+            prob[:, 1] = pred_affinity
+            prob[:, 0] = 1 - pred_affinity
+            probs.append(prob[torch.arange(len(prob)), affinity].view(-1).long())
             all_affinity.append(affinity)
         
         probs = torch.concat(probs).float()
@@ -87,13 +89,13 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
         if sel_type == 'topr':
             # select top r% by each class
             path = 'param/selection_id.pt'
-            if not osp.exist(path):
+            if not osp.exists(path):
                 print('Computing ranking...It might take a while')
                 selection_id = []
-                for cls in torch.unique(all_affinity):
-                    per_cls_rank = torch.argsort(-probs[all_affinity == cls])
+                for af in torch.unique(all_affinity):
+                    per_cls_rank = torch.argsort(-probs[all_affinity == af])
                     per_cls_rank = per_cls_rank[:int(len(per_cls_rank) * args.threshold)]
-                    selection_id.append(torch.arange(len(probs))[all_affinity == cls][per_cls_rank])
+                    selection_id.append(torch.arange(len(probs))[all_affinity == af][per_cls_rank])
                 selection_id = torch.concat(selection_id)
                 torch.save(selection_id, path)
             print('Done!')
