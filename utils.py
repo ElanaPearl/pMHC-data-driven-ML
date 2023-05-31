@@ -1,5 +1,5 @@
 import os.path as osp
-import copy
+import os
 import json
 import numpy as np
 import importlib
@@ -82,18 +82,22 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
             probs.append(prob[:, affinity].size(-1))
             all_affinity.append(affinity)
         
-        probs = torch.concat(probs)
-        all_affinity = torch.concat(all_affinity)
+        probs = torch.concat(probs).float()
+        all_affinity = torch.concat(all_affinity).long()
         if sel_type == 'topr':
             # select top r% by each class
-            print('Computing ranking...It might take a while')
-            selection_id = []
-            for cls in torch.unique(all_affinity):
-                per_cls_rank = torch.argsort(-probs[all_affinity == cls])
-                per_cls_rank = per_cls_rank[:int(len(per_cls_rank) * args.threshold)]
-                selection_id.append(torch.arange(len(probs))[all_affinity == cls][per_cls_rank])
-            selection_id = torch.concat(selection_id)
-            torch.save(selection_id, 'selection.pt')
+            path = 'param/selection_id.pt'
+            if not osp.exist(path):
+                print('Computing ranking...It might take a while')
+                selection_id = []
+                for cls in torch.unique(all_affinity):
+                    per_cls_rank = torch.argsort(-probs[all_affinity == cls])
+                    per_cls_rank = per_cls_rank[:int(len(per_cls_rank) * args.threshold)]
+                    selection_id.append(torch.arange(len(probs))[all_affinity == cls][per_cls_rank])
+                selection_id = torch.concat(selection_id)
+                torch.save(selection_id, path)
+            print('Done!')
+            selection_id = torch.load(path)
         elif sel_type == 'value':
             selection = probs > args.threshold
             selection_id = torch.arange(len(selection))[selection]

@@ -126,6 +126,7 @@ if __name__ == '__main__':
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
     parser.add_argument('-dropout', type=float, default=0.0, help='dropout rate') 
     parser.add_argument('-model_path', type=str, default=None, help='pretrained model path')
+    parser.add_argument('-threshold', type=float, default=0.9, help='threshold for selection') 
 
     # Parse the command-line arguments
     args = parser.parse_args()

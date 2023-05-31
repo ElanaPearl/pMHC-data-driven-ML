@@ -4,3 +4,4 @@ __pycache__
 wandb
 data
 ckpt/
+param/
