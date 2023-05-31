@@ -55,6 +55,9 @@ class pMHCDataset(Dataset):
             self.data = pd.read_csv(df_path)
         else:
             self.data = data
+        if 'mhc_pseudo_seq' not in self.data.columns:
+            self.data = self.data.rename(columns={'mhc': 'mhc_pseudo_seq'})
+            self.data.to_csv(df_path)
         if type(cv_splits) == int:
             cv_splits = [cv_splits]
         elif cv_splits is None:

@@ -39,6 +39,8 @@ def generate_embeds(args):
             file += '_rgrssnData'
         elif 'classification' in args.df_path:
             file += '_clssfctnData'
+        elif 'MA_data' in args.df_path:
+            file += '_clssfctnMAData'
         else:
             print("Unknown data type, neither class or regress dataset!")
         args.save_path = f'./embeds/{file}.csv'
@@ -78,14 +80,14 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='pMHC Training Script')
 
     # Misc arguments
-    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37.pth')
+    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37_i16067.pth')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-seed', type=int, default=42, help='seed')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
     parser.add_argument('-save_path', type=str, default='', help='Path to dump ckpts')
 
     # Data arguments 
-    parser.add_argument('-df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe')
+    parser.add_argument('-df_path', type=str, default='./data/MA_data.csv', help='Path to load training dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
 
