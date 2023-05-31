@@ -38,5 +38,5 @@ The output of running this script the same dataframe as in `df_path` but with 3 
 
 E.g., taking the top 90% instances (per class) with the highest confidence:
 ```
-python main.py -device 0 -model_path /dfs/user/shirwu/course/cs273b/pMHC-data-driven-ML/ckpt/floral-snowflake-41_ckpt_e26.pth -threshold 0.9
+python main.py -reweight -threshold 0.7 -run_name conf_0.7 -device 2
 ```
