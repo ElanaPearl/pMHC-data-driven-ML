@@ -12,8 +12,8 @@ import torch
 
 def generate_embeds(args):
     device =  "cuda" if args.use_cuda else 'cpu'
-    if device == 'cuda':
-        os.environ["CUDA_VISIBLE_DEVICES"] = "0,1,2,3,4"
+    # if device == 'cuda':
+    #     os.environ["CUDA_VISIBLE_DEVICES"] = args.cuda_devices 
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -24,7 +24,7 @@ def generate_embeds(args):
     model.eval()
     model = model.to(device)
 
-    loader, df = get_dataloader(args.df_path, cv_splits = None, 
+    loader, df = get_dataloader(args.df_path, cv_splits = args.cv_split, 
                                   peptide_repr = args.peptide_repr, 
                                   mhc_repr = args.mhc_repr,
                                   batch_size = args.batch_size,
@@ -44,7 +44,7 @@ def generate_embeds(args):
         else:
             print("Unknown data type, neither class or regress dataset!")
         args.save_path = f'./embeds/{file}.csv'
-
+        
     latents = [] # latents, penultimate layer of model
     pred_affinities = []
     with torch.no_grad():
@@ -56,8 +56,7 @@ def generate_embeds(args):
             pred_affinity, z = model(peptide, mhc, return_z=True)
             pred_affinities.append(pred_affinity.detach().cpu().numpy())
             latents.append(z.detach().cpu().numpy())
-                
-
+           
     pred_affinities = np.concatenate(pred_affinities)
     latents = np.concatenate(latents,axis=0)
 
@@ -70,24 +69,31 @@ def generate_embeds(args):
     pred = sigmoid(torch.Tensor(pred_affinities)).numpy()
     df['pred_affinity'] = pred
     label = (df.affinity > .426).astype(int)
-    auroc = roc_auc_score(label, pred)
-    auprc = average_precision_score(label, pred)
-    df.to_csv(args.save_path)
     
+    import ipdb; ipdb.set_trace()
+    if args.cv_split is not None:
+         args.save_path = args.save_path.split('.csv')[0] + f'_{args.cv_split}.csv'
+    df.to_csv(path, index=False)
+    df.to_csv(args.save_path, index=False)
+    # auroc = roc_auc_score(label, pred)
+    # auprc = average_precision_score(label, pred)
+
 if __name__ == '__main__':
 
     # Create the argument parser
     parser = argparse.ArgumentParser(description='pMHC Training Script')
 
     # Misc arguments
-    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37_i16067.pth')
+    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37_i16067.pth') 
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-seed', type=int, default=42, help='seed')
+    parser.add_argument('-cv_split', default=None, help='cv_split if any to consider, useful for big datasets')
     parser.add_argument('-use_cuda', action='store_true', help='use cuda or cpu')
     parser.add_argument('-save_path', type=str, default='', help='Path to dump ckpts')
+    parser.add_argument('-cuda_devices', type=str, default='0')
 
     # Data arguments 
-    parser.add_argument('-df_path', type=str, default='./data/MA_data.csv', help='Path to load training dataframe')
+    parser.add_argument('-df_path', type=str, default='./data/IEDB_classification_SA_MA_v1.csv', help='Path to load training dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
 
@@ -100,5 +106,7 @@ if __name__ == '__main__':
     # Parse the command-line arguments
     args = parser.parse_args()
     args.dropout = 0
+    if args.cv_split is not None:
+        args.cv_split = int(args.cv_split)
     generate_embeds(args)
 

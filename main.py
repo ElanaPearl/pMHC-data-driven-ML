@@ -32,11 +32,12 @@ def train_pMHC(args, device, train_loader=None):
     # Load data - training data is the MA classifcation data. We ignore the 8ish million
     # multiple allele data and keep the 4ish million single allele data
     if train_loader == None:
-        train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
+        train_loader = get_dataloader(args.tr_df_path, cv_splits = 0, 
                                     peptide_repr = args.peptide_repr, 
                                     mhc_repr = args.mhc_repr,
                                     batch_size = args.batch_size,
-                                    shuffle = True)
+                                    shuffle = True,
+                                    sample = args.n_tr_sample)
     
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
     val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
@@ -113,11 +114,12 @@ if __name__ == '__main__':
     parser.add_argument('-device', type=int, default=0, help='cuda device')
     parser.add_argument('-save_path', type=str, default='./ckpt/', help='Path to dump ckpts')
 
-    # Data arguments 
+    # Data arguments  
     parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
     parser.add_argument('-val_df_path', type=str, default='./data/IEDB_regression_data.csv', help='Path to load val / test dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
+    parser.add_argument('-n_tr_sample', type=int, default=0, help='Number of training data points to sample; 0 = use all')
 
     # Model arguments
     parser.add_argument('-model', type=str, default='lstm',choices=['mlp', 'bert', 'lstm'], help='type of model')
