@@ -15,6 +15,7 @@ class SelectPointsAL:
     
     def save(self, old_points, new_points, path):
         df = pd.concat([old_points, new_points])
+        print(df.affinity.mean())
         df.to_csv(path, index=False)
 
 class Random_SelectPoints(SelectPointsAL):
@@ -60,7 +61,6 @@ class LeastCertain_SelectPoints(SelectPointsAL):
         idx = np.argsort(entropy) # higher at bottom 
         most_certain_idx = idx[:self.n_pos]
         pos_df = df.iloc[most_certain_idx]
-
         if self.n_neg > 0:
             df = self.df[self.df.pred_affinity<.426]
             score = df.pred_affinity
@@ -73,7 +73,10 @@ class LeastCertain_SelectPoints(SelectPointsAL):
             return pos_df   
 
 for n in ['10k', '100k', 'All']:
+    print()
+    print(n)
     tr_df = pd.read_csv(f'./active_learning/data/AL_n{n}_v0.csv')
+    print(tr_df.shape)
     tr_df['data_source'] = 'SA split 0'
     pos_perc = tr_df.affinity.mean()
     embed_path = f'AL_n{n}_SAMAv1'
@@ -108,5 +111,9 @@ for n in ['10k', '100k', 'All']:
     path = f'./active_learning/data/AL_n{n}_v1_leastCertain_balanced.csv'
     fetcher.save(tr_df, AL_points, path)
 
-    ipdb.set_trace()
+    fetcher = LeastCertain_SelectPoints(df, pos_perc=1)
+    AL_points = fetcher.get()
+    path = f'./active_learning/data/AL_n{n}_v1_leastCertain_posOnly.csv'
+    fetcher.save(tr_df, AL_points, path)
+
 
