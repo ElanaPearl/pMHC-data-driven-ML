@@ -139,7 +139,7 @@ def train_pMHC(args, device, train_loader=None):
                 pred_affinity_lst = torch.concat(pred_affinity_lst)
                 log_wandb(pred_affinity_lst, affinity_lst.long(), average_loss, folder='val')    
         
-        torch.save(model.state_dict(), f'{args.save_path}/{args.run_name}_ckpt_e{epoch}.pth')
+        torch.save(model.state_dict(), f'{args.save_path}/{args.wandb_name}_ckpt_e{epoch}.pth')
 
 
 if __name__ == '__main__':
