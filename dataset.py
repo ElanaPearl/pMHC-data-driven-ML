@@ -24,7 +24,7 @@ def load_blosum_as_dict(bl_type=62):
 
 
 class pMHCDataset(Dataset):
-    def __init__(self, df_path: str, cv_splits: Any = None,
+    def __init__(self, df_path: str = None, data: Any = None, cv_splits: Any = None,
                     peptide_repr: str = '1hot',
                     mhc_repr: str = '1hot',
                     max_peptide_len: int = 15,
@@ -50,7 +50,14 @@ class pMHCDataset(Dataset):
 
         # Data = all data in the listed CV_splits; by default
         # includes all data
-        self.data = pd.read_csv(df_path)
+        assert not (df_path is None and data is None)
+        if df_path is not None:
+            self.data = pd.read_csv(df_path)
+        else:
+            self.data = data
+        if 'mhc_pseudo_seq' not in self.data.columns:
+            self.data = self.data.rename(columns={'mhc': 'mhc_pseudo_seq'})
+            self.data.to_csv(df_path)
         if type(cv_splits) == int:
             cv_splits = [cv_splits]
         elif cv_splits is None:
@@ -147,7 +154,8 @@ class pMHCDataset(Dataset):
 
 
 
-def get_dataloader(df_path: str, 
+def get_dataloader(df_path: str= None, 
+                   data: Any = None,
                    cv_splits: Any = None,
                    peptide_repr: str = '1hot',
                    mhc_repr: str= '1hot',
@@ -158,7 +166,10 @@ def get_dataloader(df_path: str,
     """
     Get training / validation dataloaders using pMHCDataset class 
     """
-    ds = pMHCDataset(df_path, cv_splits, peptide_repr, mhc_repr=mhc_repr, sample=sample)
+
+    ds = pMHCDataset(df_path=df_path, data=data,
+                     cv_splits=cv_splits, 
+                     peptide_repr=peptide_repr, mhc_repr=mhc_repr)
     ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
     if return_df:
         return ds_loader, ds.data

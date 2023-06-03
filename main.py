@@ -13,8 +13,44 @@ import os
 import random 
 from torch.utils.data import Dataset, DataLoader
 from model_lib.initialise_model import initialise_model
-from utils import log_wandb, load_pretrained, reweight_dataloader
+from utils import load_pretrained, reweight_dataloader
+import wandb
+from sklearn.metrics import roc_auc_score, average_precision_score
 
+
+def log_wandb(model_output, true_labels, loss, folder='train'):
+
+    """ 
+    Log metrics to wandb. 
+    Will always log loss, but only logs AUC / PRC if 
+    postive class is present.
+    
+    Args:
+        model_output (torch.Tensor): The output tensor from the model predicting binding affinity.
+        true_labels (torch.Tensor): The true labels (binding affinities).
+        loss (torch.Tensor): The BCE loss value to log.
+        folder (str, optional): The folder name to log the data in wadnb. Defaults to 'train'.
+
+    Returns:
+        None
+    """
+    sigmoid = torch.nn.Sigmoid()
+    model_output = sigmoid(model_output).detach().cpu().numpy()
+    true_labels = true_labels.detach().cpu().numpy()
+
+    BA_true_mean = true_labels.mean()
+    BA_pred_std = model_output.std()
+
+    metrics = {f"{folder}/loss": loss.item(), f'{folder}/BA_mean': BA_true_mean, f'{folder}/BA_std': BA_pred_std}
+
+    if len(np.unique(true_labels)) == 2: 
+        # only compute AUROC / AUPRC if postive class is present
+        auroc = roc_auc_score(true_labels, model_output)
+        auprc = average_precision_score(true_labels, model_output)
+        metrics.update({f'{folder}/aucroc': auroc, f'{folder}/aucprc': auprc})
+    
+    wandb.log(metrics)
+    
 
 def train_pMHC(args, device, train_loader=None):
     """
@@ -103,7 +139,7 @@ def train_pMHC(args, device, train_loader=None):
                 pred_affinity_lst = torch.concat(pred_affinity_lst)
                 log_wandb(pred_affinity_lst, affinity_lst.long(), average_loss, folder='val')    
         
-        torch.save(model.state_dict(), f'{args.save_path}/{wandb.run.name}_ckpt_e{epoch}.pth')
+        torch.save(model.state_dict(), f'{args.save_path}/{args.run_name}_ckpt_e{epoch}.pth')
 
 
 if __name__ == '__main__':
@@ -135,6 +171,7 @@ if __name__ == '__main__':
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
     parser.add_argument('-dropout', type=float, default=0.0, help='dropout rate') 
     parser.add_argument('-model_path', type=str, default=None, help='pretrained model path')
+    parser.add_argument('-reweight', action="store_true",) 
     parser.add_argument('-threshold', type=float, default=0.9, help='threshold for selection') 
 
     # Parse the command-line arguments
@@ -155,7 +192,8 @@ if __name__ == '__main__':
         print(f"Random seed set as {seed}")
     set_seed(args.seed)
 
-    if args.model_path is not None:
+
+    if args.reweight:
         model = load_pretrained(args, args.model_path, device)
         train_loader = reweight_dataloader(args, model, device)
     else:
