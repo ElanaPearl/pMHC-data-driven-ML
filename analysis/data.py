@@ -76,4 +76,5 @@ def get_all_data(load_train_pct=1.0, seed=1):
     test_predictions = (test_logits > 0.426).astype(int)  # What is this number? Took from generate_embeddings.py
     return train_embeddings, train_logits, train_predictions, train_labels, test_embeddings, test_logits, test_predictions, test_labels
 
-train_embeddings, train_logits, train_predictions, train_labels, test_embeddings, test_logits, test_predictions, test_labels = get_all_data()
+if __name__ == '__main__':
+    train_embeddings, train_logits, train_predictions, train_labels, test_embeddings, test_logits, test_predictions, test_labels = get_all_data()
