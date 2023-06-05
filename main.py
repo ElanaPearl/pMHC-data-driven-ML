@@ -63,7 +63,7 @@ def train_pMHC(args, device, train_loader=None):
     # Load data - training data is the MA classifcation data. We ignore the 8ish million
     # multiple allele data and keep the 4ish million single allele data
     if train_loader == None:
-        train_loader, df = get_dataloader(args.tr_df_path, cv_splits = None, 
+        train_loader, df = get_dataloader(args.tr_df_path, cv_splits = 0, 
                                     peptide_repr = args.peptide_repr, 
                                     mhc_repr = args.mhc_repr,
                                     batch_size = args.batch_size,
@@ -79,8 +79,8 @@ def train_pMHC(args, device, train_loader=None):
                                 shuffle = False)
     # Loss fn = weighted BCE 
     if args.pos_weight is None:
-        args.pos_weight = 1/(df.affinity.mean())
-    print(args.pos_weight)
+        args.pos_weight = (1/(df.affinity.mean())) #+ 2
+    print (args.pos_weight)
     weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)

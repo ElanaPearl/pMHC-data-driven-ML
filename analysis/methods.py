@@ -115,7 +115,6 @@ class TrustScore:
         d = np.tile(None, (X.shape[0], self.n_labels))
         for label_idx in range(self.n_labels):
             d[:, label_idx] = self.kdtrees[label_idx].query(X, k=2)[0][:, -1]
-
         sorted_d = np.sort(d, axis=1)
         d_to_pred = d[range(d.shape[0]), y_pred]
         d_to_closest_not_pred = np.where(

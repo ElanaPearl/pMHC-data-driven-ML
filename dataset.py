@@ -62,6 +62,7 @@ class pMHCDataset(Dataset):
             cv_splits = [cv_splits]
         elif cv_splits is None:
             cv_splits = self.data.cv_split.unique()
+        # import ipdb; ipdb.set_trace()
         self.data = self.data[self.data.cv_split.isin(cv_splits)]
         if sample > 0:
             self.data = self.data.sample(n=sample)
@@ -169,7 +170,8 @@ def get_dataloader(df_path: str= None,
 
     ds = pMHCDataset(df_path=df_path, data=data,
                      cv_splits=cv_splits, 
-                     peptide_repr=peptide_repr, mhc_repr=mhc_repr)
+                     peptide_repr=peptide_repr, mhc_repr=mhc_repr, 
+                     sample=sample)
     ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
     if return_df:
         return ds_loader, ds.data

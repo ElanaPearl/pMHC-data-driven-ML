@@ -24,7 +24,7 @@ def generate_embeds(args):
     model.eval()
     model = model.to(device)
 
-    loader, df = get_dataloader(args.df_path, cv_splits = args.cv_split, 
+    loader, df = get_dataloader(args.df_path, cv_splits = [0,1,2,3], 
                                   peptide_repr = args.peptide_repr, 
                                   mhc_repr = args.mhc_repr,
                                   batch_size = args.batch_size,
@@ -69,22 +69,21 @@ def generate_embeds(args):
     pred = sigmoid(torch.Tensor(pred_affinities)).numpy()
     df['pred_affinity'] = pred
     label = (df.affinity > .426).astype(int)
-    
-    import ipdb; ipdb.set_trace()
-    if args.cv_split is not None:
-         args.save_path = args.save_path.split('.csv')[0] + f'_{args.cv_split}.csv'
-    df.to_csv(path, index=False)
-    df.to_csv(args.save_path, index=False)
-    # auroc = roc_auc_score(label, pred)
-    # auprc = average_precision_score(label, pred)
+    print(roc_auc_score(label, pred),average_precision_score(label, pred))
+
+    # import ipdb; ipdb.set_trace()
+    # if args.cv_split is not None:
+    #      args.save_path = args.save_path.split('.csv')[0] + f'_{args.cv_split}.csv'
+    # df.to_csv(path, index=False)
+    # df.to_csv(args.save_path, index=False)
 
 if __name__ == '__main__':
 
     # Create the argument parser
     parser = argparse.ArgumentParser(description='pMHC Training Script')
 
-    # Misc arguments
-    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37_i16067.pth') 
+    # Misc arguments 
+    parser.add_argument('-model_path', type=str, default='./ckpt/sage-haze-125_ckpt_e37_i16067.pth')
     parser.add_argument('-batch_size', type=int, default=256, help='batch size')
     parser.add_argument('-seed', type=int, default=42, help='seed')
     parser.add_argument('-cv_split', default=None, help='cv_split if any to consider, useful for big datasets')
@@ -97,7 +96,7 @@ if __name__ == '__main__':
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
 
-    # Model arguments
+    # Model arguments 
     parser.add_argument('-hidden', type=int, default=64, help='hidden size of transformer model')
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-model', type=str, default='lstm',choices=['mlp', 'bert', 'lstm'], help='type of model')
