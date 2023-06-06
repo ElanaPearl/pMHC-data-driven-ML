@@ -80,13 +80,6 @@ def train_pMHC(args, device, train_loader=None):
                                 mhc_repr = args.mhc_repr,
                                 batch_size = args.batch_size,
                                 shuffle = False)
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="pMHC",
-        # track hyperparameters and run metadata
-        config=args,
-        name=args.run_name,
-    )
 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
@@ -162,7 +155,7 @@ if __name__ == '__main__':
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
     parser.add_argument('-dropout', type=float, default=0.0, help='dropout rate') 
-    # parser.add_argument('-model_path', type=str, default=None, help='pretrained model path')
+    parser.add_argument('-model_path', type=str, default='/dfs/user/shirwu/course/cs273b/pMHC-data-driven-ML/ckpt/floral-snowflake-41_ckpt_e26.pth', help='pretrained model path')
     parser.add_argument('-reweight', action="store_true",) 
     parser.add_argument('-threshold', type=float, default=0.9, help='threshold for selection') 
     parser.add_argument('-run_name', type=str, default='default')
@@ -181,7 +174,8 @@ if __name__ == '__main__':
         # set the wandb project where this run will be logged
         project="pMHC",
         # track hyperparameters and run metadata
-        config=args
+        config=args,
+        name=args.run_name
     )
     if args.reweight:
         model = load_pretrained(args, args.model_path, device)
