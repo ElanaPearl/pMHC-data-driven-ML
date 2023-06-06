@@ -1,0 +1,2 @@
+python main.py -wandb_name AL_nALL_v1_random -tr_df_path './active_learning/data/AL_nAll_v1_random.csv' -n_epochs 50 
+python main.py -wandb_name AL_nALL_v0_check -tr_df_path './active_learning/data/AL_nAll_v0.csv' -n_epochs 50 

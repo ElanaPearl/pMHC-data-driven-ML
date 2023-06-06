@@ -59,20 +59,17 @@ def train_pMHC(args, device, train_loader=None):
     
     model = initialise_model(args, vocab_size=VOCAB_SIZE, num_classes=1, device=device)
     model = model.to(device)
-    # Loss fn = weighted BCE 
-    weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
-    loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
-
-    optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
 
     # Load data - training data is the MA classifcation data. We ignore the 8ish million
     # multiple allele data and keep the 4ish million single allele data
     if train_loader == None:
-        train_loader = get_dataloader(args.tr_df_path, cv_splits = None, 
+        train_loader, df = get_dataloader(args.tr_df_path, cv_splits = 0, 
                                     peptide_repr = args.peptide_repr, 
                                     mhc_repr = args.mhc_repr,
                                     batch_size = args.batch_size,
-                                    shuffle = True)
+                                    shuffle = True,
+                                    sample = args.n_tr_sample,
+                                    return_df=True)
     
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
     val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
@@ -80,6 +77,21 @@ def train_pMHC(args, device, train_loader=None):
                                 mhc_repr = args.mhc_repr,
                                 batch_size = args.batch_size,
                                 shuffle = False)
+    # Loss fn = weighted BCE 
+    if args.pos_weight is None:
+        args.pos_weight = (1/(df.affinity.mean())) #+ 2
+    print (args.pos_weight)
+    weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
+    loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
+    optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
+
+    wandb.init(
+        # set the wandb project where this run will be logged
+        project="pMHC",
+        # track hyperparameters and run metadata
+        config=args,
+        name=args.wandb_name
+    )
 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
@@ -103,7 +115,8 @@ def train_pMHC(args, device, train_loader=None):
             if (i + 1) % 500 == 0:
                 print(f"Epoch [{epoch + 1}/{args.n_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}")
 
-            if i % 1000 == 0:
+            if i % 100000 == 0 and epoch % 3 == 0: 
+            # if i % 1000 == 0 and epoch % 2 == 0: 
                 # Test the model on regression data 
                 model.eval()
                 with torch.no_grad():
@@ -126,7 +139,7 @@ def train_pMHC(args, device, train_loader=None):
                 pred_affinity_lst = torch.concat(pred_affinity_lst)
                 log_wandb(pred_affinity_lst, affinity_lst.long(), average_loss, folder='val')    
         
-        torch.save(model.state_dict(), f'{args.save_path}/{args.run_name}_ckpt_e{epoch}.pth')
+        torch.save(model.state_dict(), f'{args.save_path}/{args.wandb_name}_ckpt_e{epoch}.pth')
 
 
 if __name__ == '__main__':
@@ -137,17 +150,19 @@ if __name__ == '__main__':
     # Misc arguments
     parser.add_argument('-learning_rate', type=float, default=1e-3, help='learning rate for training')
     parser.add_argument('-n_epochs', type=int, default=200, help='number of epochs to train')
-    parser.add_argument('-pos_weight', type=float, default=20., help='pos weight for BCE Loss; should be 1/(% pos in data)')
     parser.add_argument('-batch_size', type=int, default=512, help='batch size')
+    parser.add_argument('-pos_weight', type=float, default=None)
     parser.add_argument('-seed', type=int, default=42, help='seed; oddly super important - other seeds not 42 do not work')
     parser.add_argument('-device', type=int, default=0, help='cuda device')
     parser.add_argument('-save_path', type=str, default='./ckpt/', help='Path to dump ckpts')
+    parser.add_argument('-wandb_name', type=str, default=None, help='name to save wandb run under')
 
-    # Data arguments 
+    # Data arguments  
     parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
     parser.add_argument('-val_df_path', type=str, default='./data/IEDB_regression_data.csv', help='Path to load val / test dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
+    parser.add_argument('-n_tr_sample', type=int, default=0, help='Number of training data points to sample; 0 = use all')
 
     # Model arguments
     parser.add_argument('-model', type=str, default='lstm',choices=['mlp', 'bert', 'lstm'], help='type of model')
@@ -158,17 +173,25 @@ if __name__ == '__main__':
     parser.add_argument('-model_path', type=str, default='/dfs/user/shirwu/course/cs273b/pMHC-data-driven-ML/ckpt/floral-snowflake-41_ckpt_e26.pth', help='pretrained model path')
     parser.add_argument('-reweight', action="store_true",) 
     parser.add_argument('-threshold', type=float, default=0.9, help='threshold for selection') 
-    parser.add_argument('-run_name', type=str, default='default')
 
     # Parse the command-line arguments
     args = parser.parse_args()
     
     device =  f"cuda:{args.device}"
     print(f'Using {device} for training')
-    random.seed(args.seed)
-    np.random.seed(args.seed)
-    torch.manual_seed(args.seed)
-    torch.cuda.manual_seed_all(args.seed)
+    def set_seed(seed):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed(seed)
+        # When running on the CuDNN backend, two further options must be set
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
+        # Set a fixed value for the hash seed
+        os.environ["PYTHONHASHSEED"] = str(seed)
+        print(f"Random seed set as {seed}")
+    set_seed(args.seed)
+
 
     wandb.init(
         # set the wandb project where this run will be logged

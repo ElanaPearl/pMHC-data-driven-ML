@@ -28,7 +28,7 @@ class pMHCDataset(Dataset):
                     peptide_repr: str = '1hot',
                     mhc_repr: str = '1hot',
                     max_peptide_len: int = 15,
-                    random_pad: bool = False):
+                    sample: int = 0):
         """
         Custom Dataset class for loading pMHC dataset.
 
@@ -62,8 +62,13 @@ class pMHCDataset(Dataset):
             cv_splits = [cv_splits]
         elif cv_splits is None:
             cv_splits = self.data.cv_split.unique()
+        # import ipdb; ipdb.set_trace()
         self.data = self.data[self.data.cv_split.isin(cv_splits)]
-        
+        if sample > 0:
+            self.data = self.data.sample(n=sample)
+        # import ipdb; ipdb.set_trace()  
+        # self.data.to_csv('./active_learning/data/AL_n1k_v0.csv',index=False)
+
         # Set up for optional preprocessing / representing peptide and MHC AA data 
         self.peptide_repr = peptide_repr
         self.max_peptide_len = max_peptide_len
@@ -115,10 +120,14 @@ class pMHCDataset(Dataset):
     
     def __getitem__(self, index):
         series = self.data.iloc[index]
-        
-        peptide = series.peptide
-        mhc = series.mhc_pseudo_seq
 
+        peptide = series.peptide.upper()
+        mhc = series.mhc_pseudo_seq
+        if 'U' in peptide:
+            peptide = peptide.replace('U','X')
+        if 'U' in mhc:
+            mhc = mhc.replace('U', 'X')
+            
         # Peptide representation 
         pep_len = None
         if self.peptide_repr =='1hot':
@@ -138,7 +147,6 @@ class pMHCDataset(Dataset):
         elif self.mhc_repr == 'blosum62':
             mhc = self._get_blosum_repr(mhc)
 
-
         return {'mhc_name': series.mhc_name, # MHC allele name
                 'BA': series.affinity, #binding affinity 
                 'peptide': peptide, #peptide representation 
@@ -154,13 +162,16 @@ def get_dataloader(df_path: str= None,
                    mhc_repr: str= '1hot',
                    batch_size: int = 32,
                    shuffle: bool = True,
-                   return_df: bool = False):
+                   return_df: bool = False,
+                   sample: int = 0):
     """
     Get training / validation dataloaders using pMHCDataset class 
     """
+
     ds = pMHCDataset(df_path=df_path, data=data,
                      cv_splits=cv_splits, 
-                     peptide_repr=peptide_repr, mhc_repr=mhc_repr)
+                     peptide_repr=peptide_repr, mhc_repr=mhc_repr, 
+                     sample=sample)
     ds_loader = DataLoader(ds, batch_size=batch_size, shuffle=shuffle)
     if return_df:
         return ds_loader, ds.data
