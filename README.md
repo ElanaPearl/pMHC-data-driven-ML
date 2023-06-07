@@ -38,5 +38,5 @@ The output of running this script the same dataframe as in `df_path` but with 3 
 
 E.g., taking the top 90% instances (per class) with the highest confidence:
 ```
-python main.py -reweight -threshold 0.7 -run_name conf_0.7 -device 2
+python main.py -reweight -threshold 0.5 -run_name conf_0.5 -device 1
 ```

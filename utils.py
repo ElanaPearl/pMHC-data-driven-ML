@@ -33,7 +33,7 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
     ##############################################
     #               Get predictions              #
     ##############################################
-    model.eval()
+    # model.eval()
     _, train_logits, _, train_labels, _, _, _, _ = get_all_data()
     train_logits = torch.from_numpy(train_logits)
     train_labels = torch.from_numpy(train_labels)
@@ -53,7 +53,7 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
     ##############################################
     if sel_type == 'topr':
         # select top r% by each class
-        path = 'param/selection_id.npy'
+        path = f'param/selection_id_{args.threshold}.npy'
         if not osp.exists(path):
             print('Computing ranking...It might take a while')
             selection_id = []
