@@ -24,7 +24,7 @@ def generate_embeds(args):
     model.eval()
     model = model.to(device)
 
-    loader, df = get_dataloader(args.df_path, cv_splits = [0,1,2,3], 
+    loader, df = get_dataloader(args.df_path, cv_splits = args.cv_split, 
                                   peptide_repr = args.peptide_repr, 
                                   mhc_repr = args.mhc_repr,
                                   batch_size = args.batch_size,
@@ -72,10 +72,10 @@ def generate_embeds(args):
     print(roc_auc_score(label, pred),average_precision_score(label, pred))
 
     # import ipdb; ipdb.set_trace()
-    # if args.cv_split is not None:
-    #      args.save_path = args.save_path.split('.csv')[0] + f'_{args.cv_split}.csv'
+    if args.cv_split is not None:
+         args.save_path = args.save_path.split('.csv')[0] + f'_{args.cv_split}.csv'
     # df.to_csv(path, index=False)
-    # df.to_csv(args.save_path, index=False)
+    df.to_csv(args.save_path, index=False)
 
 if __name__ == '__main__':
 
@@ -101,7 +101,6 @@ if __name__ == '__main__':
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-model', type=str, default='lstm',choices=['mlp', 'bert', 'lstm'], help='type of model')
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
-
     # Parse the command-line arguments
     args = parser.parse_args()
     args.dropout = 0

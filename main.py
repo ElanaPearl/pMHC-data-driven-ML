@@ -63,13 +63,13 @@ def train_pMHC(args, device, train_loader=None):
     # Load data - training data is the MA classifcation data. We ignore the 8ish million
     # multiple allele data and keep the 4ish million single allele data
     if train_loader == None:
-        train_loader, df = get_dataloader(args.tr_df_path, cv_splits = 0, 
+        train_loader, df = get_dataloader(args.tr_df_path, cv_splits = None, 
                                     peptide_repr = args.peptide_repr, 
                                     mhc_repr = args.mhc_repr,
                                     batch_size = args.batch_size,
                                     shuffle = True,
                                     sample = args.n_tr_sample,
-                                    return_df=True)
+                                    return_df=True) 
     
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
     val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
@@ -91,8 +91,8 @@ def train_pMHC(args, device, train_loader=None):
         # track hyperparameters and run metadata
         config=args,
         name=args.wandb_name
-    )
-
+    ) 
+# python main.py -wandb_name AL_seed39_pw_n5k_v1_trustScore_leastcertain_balanced_sample10000 -tr_df_path './active_learning/data/AL_n5k_v1_trustScore_leastcertain_balanced_samples10000.csv' -seed 39 -pos_weight 2 -device 4 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     print(len(train_loader))
