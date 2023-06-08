@@ -6,7 +6,7 @@
 
 
 ## Training the model 
-The model can be trained by running `python main.py {args}`. The recommended run is `python main.py -device 0` where the recommended hyperparameters are by default. 
+The model can be trained by running `python main.py {args}`. The recommended run is `python main.py -device 4` where the recommended hyperparameters are by default. 
 
 ### Data
 By default, the model is trained on all 5 splits of the classification single allele data. This is ~4ish million data points with (noisy) binary labels. Only 5% positives. 
@@ -38,5 +38,5 @@ The output of running this script the same dataframe as in `df_path` but with 3 
 
 E.g., taking the top 90% instances (per class) with the highest confidence:
 ```
-python main.py -reweight -threshold 0.5 -run_name conf_0.5 -device 1
+python main.py -reweight -threshold 0.3 -wandb_name ratio=30% -device 1
 ```

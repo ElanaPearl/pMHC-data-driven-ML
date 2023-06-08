@@ -5,3 +5,4 @@ wandb
 data
 ckpt/
 param/
+embeds/

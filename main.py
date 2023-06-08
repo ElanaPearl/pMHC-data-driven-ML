@@ -64,12 +64,20 @@ def train_pMHC(args, device, train_loader=None):
     # multiple allele data and keep the 4ish million single allele data
     if train_loader == None:
         train_loader, df = get_dataloader(args.tr_df_path, cv_splits = 0, 
-                                    peptide_repr = args.peptide_repr, 
-                                    mhc_repr = args.mhc_repr,
-                                    batch_size = args.batch_size,
-                                    shuffle = True,
-                                    sample = args.n_tr_sample,
-                                    return_df=True)
+                                          peptide_repr = args.peptide_repr, 
+                                          mhc_repr = args.mhc_repr,
+                                          batch_size = args.batch_size,
+                                          shuffle = True,
+                                          sample = args.n_tr_sample,
+                                          return_df=True)
+    else:
+        _, df = get_dataloader(args.tr_df_path, cv_splits = 0, 
+                               peptide_repr = args.peptide_repr, 
+                               mhc_repr = args.mhc_repr,
+                               batch_size = args.batch_size,
+                               shuffle = True,
+                               sample = args.n_tr_sample,
+                               return_df=True)
     
     # Val data is split 4 of regression data. Splits 0,1,2,3 are for heldout testing. 
     val_loader = get_dataloader(args.val_df_path, cv_splits = 4, 
@@ -84,14 +92,6 @@ def train_pMHC(args, device, train_loader=None):
     weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
     optimizer = optim.AdamW(model.parameters(), lr=args.learning_rate)
-
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="pMHC",
-        # track hyperparameters and run metadata
-        config=args,
-        name=args.wandb_name
-    )
 
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
@@ -155,7 +155,6 @@ if __name__ == '__main__':
     parser.add_argument('-seed', type=int, default=42, help='seed; oddly super important - other seeds not 42 do not work')
     parser.add_argument('-device', type=int, default=0, help='cuda device')
     parser.add_argument('-save_path', type=str, default='./ckpt/', help='Path to dump ckpts')
-    parser.add_argument('-wandb_name', type=str, default=None, help='name to save wandb run under')
 
     # Data arguments  
     parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
@@ -173,6 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('-model_path', type=str, default='/dfs/user/shirwu/course/cs273b/pMHC-data-driven-ML/ckpt/floral-snowflake-41_ckpt_e26.pth', help='pretrained model path')
     parser.add_argument('-reweight', action="store_true",) 
     parser.add_argument('-threshold', type=float, default=0.9, help='threshold for selection') 
+    parser.add_argument('-wandb_name', type=str, default=None, help='name to save wandb run under')
 
     # Parse the command-line arguments
     args = parser.parse_args()
@@ -192,13 +192,12 @@ if __name__ == '__main__':
         print(f"Random seed set as {seed}")
     set_seed(args.seed)
 
-
     wandb.init(
         # set the wandb project where this run will be logged
         project="pMHC",
         # track hyperparameters and run metadata
         config=args,
-        name=args.run_name
+        name=args.wandb_name
     )
     if args.reweight:
         model = load_pretrained(args, args.model_path, device)

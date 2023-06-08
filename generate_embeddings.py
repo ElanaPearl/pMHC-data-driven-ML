@@ -20,7 +20,7 @@ def generate_embeds(args):
     torch.cuda.manual_seed_all(args.seed)
     
     model = initialise_model(args, vocab_size=VOCAB_SIZE, num_classes=1, device=device)
-    model.load_state_dict(torch.load(args.model_path))
+    model.load_state_dict(torch.load(args.model_path, map_location='cpu'))
     model.eval()
     model = model.to(device)
 
