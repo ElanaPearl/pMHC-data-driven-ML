@@ -66,8 +66,8 @@ class pMHCDataset(Dataset):
         self.data = self.data[self.data.cv_split.isin(cv_splits)]
         if sample > 0:
             self.data = self.data.sample(n=sample)
-        # import ipdb; ipdb.set_trace()  
-        # self.data.to_csv('./active_learning/data/AL_n1k_v0.csv',index=False)
+        # import ipdb; ipdb.set_trace() 
+        # self.data.to_csv('./active_learning/data/AL_n20k_v0.csv',index=False)
 
         # Set up for optional preprocessing / representing peptide and MHC AA data 
         self.peptide_repr = peptide_repr
