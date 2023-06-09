@@ -52,7 +52,7 @@ def log_wandb(model_output, true_labels, loss, folder='train'):
     wandb.log(metrics)
     
 
-def train_pMHC(args, device, train_loader=None):
+def train_pMHC(args, device):
     """
     Trains pMHC model.
     """
@@ -62,7 +62,9 @@ def train_pMHC(args, device, train_loader=None):
 
     # Load data - training data is the MA classifcation data. We ignore the 8ish million
     # multiple allele data and keep the 4ish million single allele data
-    if train_loader == None:
+    if args.reweight:
+        train_loader, df = reweight_dataloader(args)
+    else:
         train_loader, df = get_dataloader(args.tr_df_path, cv_splits = None, 
                                     peptide_repr = args.peptide_repr, 
                                     mhc_repr = args.mhc_repr,
@@ -79,7 +81,7 @@ def train_pMHC(args, device, train_loader=None):
                                 shuffle = False)
     # Loss fn = weighted BCE 
     if args.pos_weight is None:
-        args.pos_weight = (1/(df.affinity.mean())) #+ 2
+        args.pos_weight = (1/(df.affinity.mean())) 
     print (args.pos_weight)
     weight = torch.tensor([args.pos_weight]).to(device)  # Higher weight for positive (minority) class = ~ 100 / 5 since 5% data is + 
     loss_fn = nn.BCEWithLogitsLoss(pos_weight=weight)
@@ -92,7 +94,7 @@ def train_pMHC(args, device, train_loader=None):
         config=args,
         name=args.wandb_name
     ) 
-# python main.py -wandb_name AL_seed39_pw_n5k_v1_trustScore_leastcertain_balanced_sample10000 -tr_df_path './active_learning/data/AL_n5k_v1_trustScore_leastcertain_balanced_samples10000.csv' -seed 39 -pos_weight 2 -device 4 
+
     if not os.path.exists(args.save_path):
         os.makedirs(args.save_path)
     print(len(train_loader))
@@ -115,10 +117,10 @@ def train_pMHC(args, device, train_loader=None):
             if (i + 1) % 500 == 0:
                 print(f"Epoch [{epoch + 1}/{args.n_epochs}], Step [{i + 1}/{len(train_loader)}], Loss: {loss.item():.4f}")
 
-            if i % 100000 == 0 and epoch % 3 == 0: 
-            # if i % 1000 == 0 and epoch % 2 == 0: 
+            # if i % 100000 == 0 and epoch % 3 == 0: 
+            if i % args.eval_iter_freq == 0:
                 # Test the model on regression data 
-                model.eval()
+                model.eval() 
                 with torch.no_grad():
                     affinity_lst = []
                     pred_affinity_lst = []
@@ -158,11 +160,12 @@ if __name__ == '__main__':
     parser.add_argument('-wandb_name', type=str, default=None, help='name to save wandb run under')
 
     # Data arguments  
-    parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_data_SA.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
+    parser.add_argument('-tr_df_path', type=str, default='./data/IEDB_classification_SA_MA_v1.csv', help='Path to load training dataframe') #'./data/IEDB_classification_data_SA.csv'
     parser.add_argument('-val_df_path', type=str, default='./data/IEDB_regression_data.csv', help='Path to load val / test dataframe')
     parser.add_argument('-peptide_repr', type=str, default='indices', help='how to represent peptide, if at all') 
     parser.add_argument('-mhc_repr', type=str, default='indices', help='how to represent mhc allele, if at all') 
     parser.add_argument('-n_tr_sample', type=int, default=0, help='Number of training data points to sample; 0 = use all')
+    parser.add_argument('-eval_iter_freq', type=int, default=100000, help='freq to evaluate val set')
 
     # Model arguments
     parser.add_argument('-model', type=str, default='lstm',choices=['mlp', 'bert', 'lstm'], help='type of model')
@@ -170,7 +173,7 @@ if __name__ == '__main__':
     parser.add_argument('-embed_dim', type=int, default=100, help='hidden size of transformer model')
     parser.add_argument('-layers', type=int, default=3, help='number of layers of bert')
     parser.add_argument('-dropout', type=float, default=0.0, help='dropout rate') 
-    parser.add_argument('-model_path', type=str, default='/dfs/user/shirwu/course/cs273b/pMHC-data-driven-ML/ckpt/floral-snowflake-41_ckpt_e26.pth', help='pretrained model path')
+    parser.add_argument('-model_path', type=str, default=None, help='pretrained model path')
     parser.add_argument('-reweight', action="store_true",) 
     parser.add_argument('-threshold', type=float, default=0.9, help='threshold for selection') 
 
@@ -192,17 +195,4 @@ if __name__ == '__main__':
         print(f"Random seed set as {seed}")
     set_seed(args.seed)
 
-
-    wandb.init(
-        # set the wandb project where this run will be logged
-        project="pMHC",
-        # track hyperparameters and run metadata
-        config=args,
-        name=args.run_name
-    )
-    if args.reweight:
-        model = load_pretrained(args, args.model_path, device)
-        train_loader = reweight_dataloader(args, model, device)
-    else:
-        train_loader = None
-    train_pMHC(args, device, train_loader)
+    train_pMHC(args, device)

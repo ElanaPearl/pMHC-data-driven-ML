@@ -22,21 +22,17 @@ def load_pretrained(args, model_path, device):
     return model
 
 
-def reweight_dataloader(args, model, device, sel_type='topr'):
-    # Load data - training data is the MA classifcation data. We ignore the 8ish million
-    # multiple allele data and keep the 4ish million single allele data
-    unshuffled_train_loader, train_ds = get_dataloader(args.tr_df_path, cv_splits = None, 
-                                             peptide_repr = args.peptide_repr, 
-                                             mhc_repr = args.mhc_repr,
-                                             batch_size = args.batch_size,
-                                             shuffle = False, return_df=True)
+def reweight_dataloader(args, sel_type='topr'):
     ##############################################
     #               Get predictions              #
     ##############################################
-    # model.eval()
-    _, train_logits, _, train_labels, _, _, _, _ = get_all_data()
-    train_logits = torch.from_numpy(train_logits)
-    train_labels = torch.from_numpy(train_labels)
+    import pandas as pd 
+    df = pd.read_csv('./embeds/sage-haze-125_ckpt_e37_i16067_clssfctnData.csv')
+    train_logits = df.pred_affinity_logits
+    train_labels = df.affinity 
+    # _, train_logits, _, train_labels, _, _, _, _ = get_all_data()
+    train_logits = torch.from_numpy(np.array(train_logits))
+    train_labels = torch.from_numpy(np.array(train_labels))
     print('train_logits.size()', train_logits.size())
     print('train_labels.size()', train_labels.size())
     print('train_logits[0], train_labels[0]: ', train_logits[0], train_labels[0])
@@ -62,27 +58,26 @@ def reweight_dataloader(args, model, device, sel_type='topr'):
                 per_cls_rank = per_cls_rank[:int(len(per_cls_rank) * args.threshold)]
                 selection_id.append(torch.arange(len(train_probs))[train_labels == af][per_cls_rank])
             selection_id = torch.concat(selection_id).numpy()
-            torch.save(selection_id, path)
+            # torch.save(selection_id, path)
         print('Done!')
-        selection_id = torch.load(path)
+        # selection_id = torch.load(path)
     elif sel_type == 'value':
         selection = train_logits > args.threshold
         selection_id = np.arange(len(selection))[selection]
     else:
         raise NotImplemented
-
-    selected_df = train_ds.iloc[selection_id, :]
+    cols = [c for c in df.columns if 'latent' not in c]
+    selected_df = df[cols].iloc[selection_id, :]
     selected_df = selected_df.reset_index(drop=True)
-    print('train_ds', train_ds, len(train_ds))
-    print('selected_df', selected_df, len(selected_df))
-    
-    train_loader = get_dataloader(data=selected_df, cv_splits = None, 
+    # print('train_ds', train_ds, len(train_ds))
+    # print('selected_df', selected_df, len(selected_df))
+    train_loader, df = get_dataloader(data=selected_df, cv_splits = None, 
                                   peptide_repr = args.peptide_repr, 
                                   mhc_repr = args.mhc_repr,
                                   batch_size = args.batch_size,
-                                  shuffle = True, return_df=False)
+                                  shuffle = True, return_df=True)
     
-    return train_loader
+    return train_loader, df
 
 
 

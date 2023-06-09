@@ -55,6 +55,7 @@ class pMHCDataset(Dataset):
             self.data = pd.read_csv(df_path)
         else:
             self.data = data
+            
         if 'mhc_pseudo_seq' not in self.data.columns:
             self.data = self.data.rename(columns={'mhc': 'mhc_pseudo_seq'})
             self.data.to_csv(df_path)
@@ -62,8 +63,9 @@ class pMHCDataset(Dataset):
             cv_splits = [cv_splits]
         elif cv_splits is None:
             cv_splits = self.data.cv_split.unique()
-        # import ipdb; ipdb.set_trace()
+
         self.data = self.data[self.data.cv_split.isin(cv_splits)]
+
         if sample > 0:
             self.data = self.data.sample(n=sample)
         # import ipdb; ipdb.set_trace() 
